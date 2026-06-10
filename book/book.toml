@@ -1,0 +1,35 @@
+[book]
+authors = ["Daira-Emma Hopwood", "Sean Bowe"]
+language = "en"
+multilingual = false
+src = "src"
+title = "The Ironwood Book"
+
+[preprocessor.katex]
+macros = "macros.txt"
+after = ["links"]
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[preprocessor.admonish]
+command = "mdbook-admonish"
+assets_version = "3.0.0"
+
+[preprocessor.todo]
+command = "python3 preprocessor-todo.py"
+after = ["links"]
+
+[output]
+
+[output.html]
+additional-js = ["mermaid.min.js", "mermaid-init.js", "todo.js"]
+default-theme = "rust"
+preferred-dark-theme = "rust"
+additional-css = ["custom.css"]
+hash-files = true
+
+# Enable these to generate links with mdbook-rustdoc-link
+# Do not check in these uncommented.
+# [preprocessor.rustdoc-link]
+# after = ["links"]

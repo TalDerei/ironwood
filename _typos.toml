@@ -1,0 +1,12 @@
+[files]
+# Vendored assets and generated output are not spell-checked.
+extend-exclude = [
+  "*.js",
+  "*.css",
+  "*.json",
+  "*.svg",
+  "*.lock",
+  "LICENSE-*",
+  "book/book/",
+  "target/",
+]
