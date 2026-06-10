@@ -1,0 +1,4 @@
+# Conventions
+
+\bconcat:{\mathop{\kern 0.1em||\kern 0.1em}}
+\Repr:{\star}
