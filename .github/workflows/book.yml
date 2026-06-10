@@ -19,7 +19,10 @@ jobs:
           tool: mdbook@0.4.52,mdbook-katex@0.9.4,mdbook-mermaid@0.16.2,mdbook-admonish@1.20.0
 
       - name: Build Ironwood book
-        run: mdbook build ./book
+        # Run from within book/ so the todo preprocessor's relative
+        # command path resolves.
+        run: mdbook build
+        working-directory: book
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@4a2e02b36f31d8974a0d09d3bb9f3172aa2d0d0d # v3.9.3
