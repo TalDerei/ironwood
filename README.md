@@ -6,7 +6,7 @@
 
 ## License
 
-Copyright 2026 Zcash Open Development Lab.
+Copyright 2026 Zcash Protocol Developers.
 
 All code in this workspace is licensed under either of
 
