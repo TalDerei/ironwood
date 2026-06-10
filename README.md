@@ -1,5 +1,8 @@
 # $\mathtt{ironwood} \gets \text{Setup}(1^\lambda)$
 
+Ironwood is a new shielded pool, built to restore confidence for all Zcash'rs
+in the supply integrity of Zcash. It runs a formally verified Orchard circuit.
+
 ## Documentation
 
 - [The Ironwood Book](https://zcash.github.io/ironwood/)
