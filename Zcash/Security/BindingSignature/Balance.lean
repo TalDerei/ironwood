@@ -277,4 +277,26 @@ theorem natAbs_lt_of_abs_le {r : ℕ} {N B : ℤ} (hN : |N| ≤ B) (hr : B < (r 
   have h : (N.natAbs : ℤ) < (r : ℤ) := by rw [← Int.abs_eq_natAbs]; exact lt_of_le_of_lt hN hr
   exact_mod_cast h
 
+/-- The `vSum` magnitude bound for at most `N` values each with `|v| ≤ 2^64 − 1` and a signed-64-bit
+balance: `N · (2^64 − 1) + 2^63`. Each pool's bound is an instance (see `Orchard` / `Sapling`). -/
+def vSumBound (N : ℕ) : ℤ := (N : ℤ) * (2^64 - 1) + 2^63
+
+/-- Shared no-overflow bound. `N` values each range-proven to `|v| ≤ 2^64 − 1`, with a signed-64-bit
+`vBalance` (`|vBalance| ≤ 2^63`), give `(vs.sum − vBalance).natAbs < r` once `vSumBound N < r`. This
+is the common core of both pools' bounds: Orchard applies it to its net values directly; Sapling to
+the spend values concatenated with the negated output values (each still has `|v| ≤ 2^64 − 1`). -/
+theorem natAbs_lt_of_vSumBound {r : ℕ} (vs : List ℤ) (vBalance : ℤ) (N : ℕ)
+    (hv : ∀ v ∈ vs, |v| ≤ 2^64 - 1)
+    (hn : vs.length ≤ N)
+    (hvb : |vBalance| ≤ 2^63)
+    (hr : vSumBound N < (r : ℤ)) :
+    (vs.sum - vBalance).natAbs < r := by
+  refine natAbs_lt_of_abs_le ?_ hr
+  simp only [vSumBound]
+  have hlen : (vs.length : ℤ) ≤ (N : ℤ) := by exact_mod_cast hn
+  have hs : |vs.sum| ≤ (N : ℤ) * (2^64 - 1) :=
+    le_trans (abs_listSum_le hv) (mul_le_mul_of_nonneg_right hlen (by norm_num))
+  calc |vs.sum - vBalance| ≤ |vs.sum| + |vBalance| := abs_sub _ _
+    _ ≤ (N : ℤ) * (2^64 - 1) + 2^63 := add_le_add hs hvb
+
 end Zcash.Security.BindingSignature
