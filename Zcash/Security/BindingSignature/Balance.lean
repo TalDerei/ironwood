@@ -105,21 +105,21 @@ def Binding (V R : M) : Prop := ∀ a b : F, a • V + b • R = 0 → a = 0 ∧
 
 /-- In an abstract model where `Binding` holds, a verifying bundle balances in `F`. -/
 theorem balances_of_binding (V R : M) (A B bsk : F)
-    (hbind : Binding (F := F) V R)
+    (hBind : Binding (F := F) V R)
     (hVR : A • V = (bsk - B) • R) :
     A = 0 := by
   have h0 : A • V + (B - bsk) • R = 0 := by
     rw [hVR, ← add_smul]
     have hc : (bsk - B) + (B - bsk) = (0 : F) := by ring
     rw [hc, zero_smul]
-  exact (hbind A (B - bsk) h0).1
+  exact (hBind A (B - bsk) h0).1
 
 /-- Abstract-model combination: extractability + decomposition + (idealized) binding ⟹ `A = 0`. -/
 theorem value_coeff_zero (V R bvk : M) (A B bsk : F)
-    (hbind : Binding (F := F) V R)
+    (hBind : Binding (F := F) V R)
     (hExtract : bvk = bsk • R) (hSum : bvk = A • V + B • R) :
     A = 0 :=
-  balances_of_binding V R A B bsk hbind
+  balances_of_binding V R A B bsk hBind
     (smul_value_eq_smul_rand V R bvk A B bsk hExtract hSum)
 
 /-! ### Integer balance: range / no-overflow lift
@@ -208,10 +208,10 @@ balance *modulo the scalar-field order*, with no `hSum` assumption (the decompos
 `bindingVK_decomp`). This is not integer balance: lifting it to `∑ v_in = ∑ v_out + v_balance`
 over ℤ needs the range / no-overflow step `intBalance_eq_zero_of_lt`, which is not applied here. -/
 theorem bundle_mod_balances (V R : M) (spends outputs : List (F × F)) (vBalance bsk : F)
-    (hbind : Binding (F := F) V R)
+    (hBind : Binding (F := F) V R)
     (hExtract : bindingVK V R spends outputs vBalance = bsk • R) :
     (spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance = 0 :=
-  value_coeff_zero V R (bindingVK V R spends outputs vBalance) _ _ bsk hbind hExtract
+  value_coeff_zero V R (bindingVK V R spends outputs vBalance) _ _ bsk hBind hExtract
     (bindingVK_decomp V R spends outputs vBalance)
 
 /-- Cast an integer-valued bundle (integer note / net values, field randomness) to a field-valued one,
@@ -241,13 +241,13 @@ theorem bundle_integer_balances {r : ℕ} [Fact (Nat.Prime r)]
     {M : Type*} [AddCommGroup M] [Module (ZMod r) M]
     (V R : M) (spends outputs : List (ℤ × ZMod r)) (vBalance : ℤ) (bsk : ZMod r)
     (hbound : ((spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance).natAbs < r)
-    (hbind : Binding (F := ZMod r) V R)
+    (hBind : Binding (F := ZMod r) V R)
     (hExtract : bindingVK V R (castBundle spends) (castBundle outputs) (vBalance : ZMod r) = bsk • R) :
     (spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance = 0 := by
   haveI : NeZero r := ⟨(Fact.out : Nat.Prime r).pos.ne'⟩
   refine intBalance_eq_zero_of_lt _ ?_ hbound
   have hmod := bundle_mod_balances V R (castBundle spends) (castBundle outputs) (vBalance : ZMod r)
-    bsk hbind hExtract
+    bsk hBind hExtract
   rw [castBundle_fst_sum, castBundle_fst_sum] at hmod
   rw [Int.cast_sub, Int.cast_sub]
   exact hmod

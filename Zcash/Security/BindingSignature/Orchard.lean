@@ -36,10 +36,10 @@ example : orchardVSumBound = 1208916596242592319864833 := by norm_num [orchardVS
 theorem orchard_natAbs_lt {r : ℕ} (vs : List ℤ) (vBalance : ℤ)
     (hv : ∀ v ∈ vs, |v| ≤ 2^64 - 1)
     (hn : vs.length ≤ 2^16 - 1)
-    (hvb : |vBalance| ≤ 2^63)
+    (hvBalance : |vBalance| ≤ 2^63)
     (hr : orchardVSumBound < (r : ℤ)) :
     (vs.sum - vBalance).natAbs < r :=
-  natAbs_lt_of_vSumBound vs vBalance (2^16 - 1) hv hn hvb hr
+  natAbs_lt_of_vSumBound vs vBalance (2^16 - 1) hv hn hvBalance hr
 
 /-- The bound fits the Pallas scalar field: the `hr` that instantiates `orchard_natAbs_lt` at
 `r = pallasScalarOrder` (and witnesses that the lemma is not vacuous). -/

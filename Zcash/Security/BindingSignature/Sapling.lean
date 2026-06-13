@@ -101,39 +101,39 @@ signed-64-bit `vBalance`. Concatenating the spends with the negated outputs (eac
 `|v| ≤ 2^64 − 1`) reduces to the shared `natAbs_lt_of_vSumBound`, exactly as Orchard does with its
 net values. -/
 theorem sapling_natAbs_lt {r : ℕ} (olds news : List ℤ) (vBalance : ℤ)
-    (hold : ∀ v ∈ olds, 0 ≤ v ∧ v ≤ 2^64 - 1)
-    (hnew : ∀ v ∈ news, 0 ≤ v ∧ v ≤ 2^64 - 1)
-    (hno : olds.length ≤ saplingMaxSpends)
-    (hmo : news.length ≤ saplingMaxOutputs)
-    (hvb : |vBalance| ≤ 2^63)
+    (hOld : ∀ v ∈ olds, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hNew : ∀ v ∈ news, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hnOld : olds.length ≤ saplingMaxSpends)
+    (hnNew : news.length ≤ saplingMaxOutputs)
+    (hvBalance : |vBalance| ≤ 2^63)
     (hr : saplingVSumBound < (r : ℤ)) :
     (olds.sum - news.sum - vBalance).natAbs < r := by
   have hmapneg : (news.map Neg.neg).sum = -news.sum := by simp [List.sum_neg]
   have hv : ∀ v ∈ olds ++ news.map Neg.neg, |v| ≤ 2^64 - 1 := by
     intro v hv
     rcases List.mem_append.mp hv with h | h
-    · exact abs_le.mpr ⟨by linarith [(hold v h).1, show (0:ℤ) ≤ 2^64 - 1 by norm_num], (hold v h).2⟩
+    · exact abs_le.mpr ⟨by linarith [(hOld v h).1, show (0:ℤ) ≤ 2^64 - 1 by norm_num], (hOld v h).2⟩
     · obtain ⟨w, hw, rfl⟩ := List.mem_map.mp h
       exact abs_le.mpr
-        ⟨by linarith [(hnew w hw).2], by linarith [(hnew w hw).1, show (0:ℤ) ≤ 2^64 - 1 by norm_num]⟩
+        ⟨by linarith [(hNew w hw).2], by linarith [(hNew w hw).1, show (0:ℤ) ≤ 2^64 - 1 by norm_num]⟩
   have hlen : (olds ++ news.map Neg.neg).length ≤ saplingMaxSpends + saplingMaxOutputs := by
-    rw [List.length_append, List.length_map]; exact Nat.add_le_add hno hmo
+    rw [List.length_append, List.length_map]; exact Nat.add_le_add hnOld hnNew
   have key := natAbs_lt_of_vSumBound (olds ++ news.map Neg.neg) vBalance
-    (saplingMaxSpends + saplingMaxOutputs) hv hlen hvb hr
+    (saplingMaxSpends + saplingMaxOutputs) hv hlen hvBalance hr
   rwa [List.sum_append, hmapneg, ← sub_eq_add_neg] at key
 
 /-- Derive the spend/output counts from the 2 MB transaction-size limit (`n ≤ 5681`, `m ≤ 2109`),
 then conclude via `sapling_natAbs_lt`. -/
 theorem sapling_natAbs_lt_of_bytes {r : ℕ} (olds news : List ℤ) (vBalance : ℤ)
-    (hold : ∀ v ∈ olds, 0 ≤ v ∧ v ≤ 2^64 - 1)
-    (hnew : ∀ v ∈ news, 0 ≤ v ∧ v ≤ 2^64 - 1)
-    (hspend : saplingMinSpendBytes * olds.length ≤ maxTxBytes)
-    (houtput : saplingOutputBytes * news.length ≤ maxTxBytes)
-    (hvb : |vBalance| ≤ 2^63)
+    (hOld : ∀ v ∈ olds, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hNew : ∀ v ∈ news, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hSpend : saplingMinSpendBytes * olds.length ≤ maxTxBytes)
+    (hOutput : saplingOutputBytes * news.length ≤ maxTxBytes)
+    (hvBalance : |vBalance| ≤ 2^63)
     (hr : saplingVSumBound < (r : ℤ)) :
     (olds.sum - news.sum - vBalance).natAbs < r :=
-  sapling_natAbs_lt olds news vBalance hold hnew
-    (sapling_spend_count _ hspend) (sapling_output_count _ houtput) hvb hr
+  sapling_natAbs_lt olds news vBalance hOld hNew
+    (sapling_spend_count _ hSpend) (sapling_output_count _ hOutput) hvBalance hr
 
 /-- The bound fits the Jubjub scalar field: the `hr` that instantiates `sapling_natAbs_lt` at
 `r = jubjubScalarOrder` (and witnesses that the lemma is not vacuous). -/
