@@ -19,7 +19,7 @@ namespace Zcash.Security.BindingSignature
 /-- The Pallas scalar field order `r_ℙ` — the order of the Pallas group, which is the scalar field of
 the Orchard value commitment (spec § Pallas and Vesta). Imported from `CompElliptic.Fields.Pasta`,
 where it carries a Lucas/Pratt primality certificate. -/
-def pallasScalarOrder : ℕ := CompElliptic.Fields.Pasta.PALLAS_SCALAR_CARD
+@[reducible] def pallasScalarOrder : ℕ := CompElliptic.Fields.Pasta.PALLAS_SCALAR_CARD
 
 /-- The Orchard `vSum` magnitude bound = the spec's `ValueCommitTypeOrchard` subrange endpoint
 `(2^16 − 1)·(2^64 − 1) + 2^63`, from `|v| ≤ 2^64 − 1` per action, the consensus rule `n ≤ 2^16 − 1`,
@@ -45,5 +45,24 @@ theorem orchard_natAbs_lt {r : ℕ} (vs : List ℤ) (vBalance : ℤ)
 `r = pallasScalarOrder` (and witnesses that the lemma is not vacuous). -/
 theorem orchardVSumBound_lt_pallasScalarOrder : orchardVSumBound < (pallasScalarOrder : ℤ) := by
   norm_num [orchardVSumBound, vSumBound, pallasScalarOrder]
+
+/-- **Orchard integer value balance (§4.14).** A verifying Orchard bundle of `≤ 2^16 − 1` actions —
+each committing a net value `v ∈ [−2^64+1, 2^64−1]`, with signed-64-bit `vBalance` — balances over ℤ:
+`∑ v_net − vBalance = 0`. The no-overflow bound is discharged here by `orchard_natAbs_lt`; binding
+(`hBind`, the idealized `Binding`) and RedDSA extractability (`hExtract`) remain assumptions. -/
+theorem orchard_bundle_balances {M : Type*} [AddCommGroup M] [Module (ZMod pallasScalarOrder) M]
+    (V R : M) (actions : List (ℤ × ZMod pallasScalarOrder)) (vBalance : ℤ)
+    (bsk : ZMod pallasScalarOrder)
+    (hv : ∀ v ∈ actions.map Prod.fst, |v| ≤ 2^64 - 1)
+    (hn : actions.length ≤ 2^16 - 1)
+    (hvBalance : |vBalance| ≤ 2^63)
+    (hBind : Binding (F := ZMod pallasScalarOrder) V R)
+    (hExtract : bindingVK V R (castBundle actions) (castBundle []) (vBalance : ZMod pallasScalarOrder)
+      = bsk • R) :
+    (actions.map Prod.fst).sum - vBalance = 0 := by
+  have hbound := orchard_natAbs_lt (actions.map Prod.fst) vBalance hv (by simpa using hn) hvBalance
+    orchardVSumBound_lt_pallasScalarOrder
+  simpa using
+    bundle_integer_balances V R actions [] vBalance bsk (by simpa using hbound) hBind hExtract
 
 end Zcash.Security.BindingSignature

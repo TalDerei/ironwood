@@ -28,7 +28,7 @@ namespace Zcash.Security.BindingSignature
 /-- The Jubjub scalar field order `ℓ` — the prime-order subgroup order, which is the scalar field of
 the Sapling value commitment (spec § Jubjub). Imported from `CompElliptic.Fields.Jubjub`, where it
 carries a Lucas/Pratt primality certificate. -/
-def jubjubScalarOrder : ℕ := CompElliptic.Fields.Jubjub.JUBJUB_SCALAR_CARD
+@[reducible] def jubjubScalarOrder : ℕ := CompElliptic.Fields.Jubjub.JUBJUB_SCALAR_CARD
 
 /-- Maximum transaction size in bytes: a transaction cannot exceed the maximum block size
 (`2000000` bytes, a consensus rule). -/
@@ -142,5 +142,26 @@ theorem saplingVSumBound_lt_jubjubScalarOrder : saplingVSumBound < (jubjubScalar
              show saplingMaxSpends = 5681 from rfl,
              show saplingMaxOutputs = 2109 from rfl]
   norm_num [jubjubScalarOrder]
+
+/-- **Sapling integer value balance (§4.13).** A verifying Sapling bundle — `≤ saplingMaxSpends`
+spends and `≤ saplingMaxOutputs` outputs, each value in `[0, 2^64−1]`, signed-64-bit `vBalance` —
+balances over ℤ: `∑ v_old − ∑ v_new − vBalance = 0`. The no-overflow bound is discharged here by
+`sapling_natAbs_lt`; binding (`hBind`, the idealized `Binding`) and RedDSA extractability
+(`hExtract`) remain assumptions. -/
+theorem sapling_bundle_balances {M : Type*} [AddCommGroup M] [Module (ZMod jubjubScalarOrder) M]
+    (V R : M) (spends outputs : List (ℤ × ZMod jubjubScalarOrder)) (vBalance : ℤ)
+    (bsk : ZMod jubjubScalarOrder)
+    (hOld : ∀ v ∈ spends.map Prod.fst, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hNew : ∀ v ∈ outputs.map Prod.fst, 0 ≤ v ∧ v ≤ 2^64 - 1)
+    (hnOld : spends.length ≤ saplingMaxSpends)
+    (hnNew : outputs.length ≤ saplingMaxOutputs)
+    (hvBalance : |vBalance| ≤ 2^63)
+    (hBind : Binding (F := ZMod jubjubScalarOrder) V R)
+    (hExtract : bindingVK V R (castBundle spends) (castBundle outputs) (vBalance : ZMod jubjubScalarOrder)
+      = bsk • R) :
+    (spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance = 0 := by
+  have hbound := sapling_natAbs_lt (spends.map Prod.fst) (outputs.map Prod.fst) vBalance
+    hOld hNew (by simpa using hnOld) (by simpa using hnNew) hvBalance saplingVSumBound_lt_jubjubScalarOrder
+  exact bundle_integer_balances V R spends outputs vBalance bsk hbound hBind hExtract
 
 end Zcash.Security.BindingSignature

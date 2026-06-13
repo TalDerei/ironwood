@@ -37,17 +37,22 @@ binding hypothesis. Instead we phrase binding as a reduction:
   check over a *general* `F`-module where `V, R` genuinely can be independent (e.g. a rank-≥2 free
   module).
 
-## Assumptions / later steps
+The range / no-overflow lift from field balance to integer balance is already built (`§ Integer
+balance` below: `intBalance_eq_zero_of_lt`, discharged per pool by `orchard_natAbs_lt` /
+`sapling_natAbs_lt` from the 64-bit value-type ranges). What remains is cryptographic and
+computational, not algebraic:
+
+## Assumptions
 
 * **RedDSA extractability** (`bvk = bsk • R` from a verifying binding signature) — assumed, not
   proved (its proof needs a random oracle + forking); supplied as the `hExtract` hypothesis.
-* **DLR hardness** — discharges the reduction above to actual balance; lives in the
-  computational / AGM layer (not yet built).
-* **Lifting `A = 0` in `F = ZMod r` to integer balance** (`∑ v_in = ∑ v_out + v_balance` over ℤ) —
-  the range / no-overflow lift `intBalance_eq_zero_of_lt`, valid when `|vSum| < r`. That bound
-  follows from the 64-bit value/balance types and the spend/output/action-count bound; the per-pool
-  lemmas `orchard_natAbs_lt` / `sapling_natAbs_lt` (modules `Orchard` / `Sapling`) establish it
-  (see also `§ Integer balance` below).
+* **DLR hardness** — the assumption the reduction discharges against to conclude actual balance (the
+  discrete-log relation problem, tightly equivalent to DL).
+
+## Not yet built
+
+* **The AGM / DLR wrapper** — the computational / AGM layer that consumes `relation_of_imbalance`
+  against DLR hardness.
 -/
 
 namespace Zcash.Security.BindingSignature
