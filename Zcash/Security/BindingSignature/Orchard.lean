@@ -1,4 +1,5 @@
 import Zcash.Security.BindingSignature.Balance
+import CompElliptic.Fields.Pasta
 
 /-!
 # Orchard no-overflow bound (spec §4.14)
@@ -16,8 +17,9 @@ discharging the `hbound` hypothesis of `bundle_integer_balances` for Orchard.
 namespace Zcash.Security.BindingSignature
 
 /-- The Pallas scalar field order `r_ℙ` — the order of the Pallas group, which is the scalar field of
-the Orchard value commitment (spec § Pallas and Vesta). -/
-def pallasScalarOrder : ℕ := 0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001
+the Orchard value commitment (spec § Pallas and Vesta). Imported from `CompElliptic.Fields.Pasta`,
+where it carries a Lucas/Pratt primality certificate. -/
+def pallasScalarOrder : ℕ := CompElliptic.Fields.Pasta.PALLAS_SCALAR_CARD
 
 /-- The Orchard `vSum` magnitude bound = the spec's `ValueCommitTypeOrchard` subrange endpoint
 `(2^16 − 1)·(2^64 − 1) + 2^63`, from `|v| ≤ 2^64 − 1` per action, the consensus rule `n ≤ 2^16 − 1`,

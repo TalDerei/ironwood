@@ -1,4 +1,5 @@
 import Zcash.Security.BindingSignature.Balance
+import CompElliptic.Fields.Jubjub
 
 /-!
 # Sapling no-overflow bound (spec §4.13)
@@ -25,8 +26,9 @@ and the byte-budget corollary `sapling_natAbs_lt_of_bytes`, both reducing to the
 namespace Zcash.Security.BindingSignature
 
 /-- The Jubjub scalar field order `ℓ` — the prime-order subgroup order, which is the scalar field of
-the Sapling value commitment (spec § Jubjub). -/
-def jubjubScalarOrder : ℕ := 0x0e7db4ea6533afa906673b0101343b00a6682093ccc81082d0970e5ed6f72cb7
+the Sapling value commitment (spec § Jubjub). Imported from `CompElliptic.Fields.Jubjub`, where it
+carries a Lucas/Pratt primality certificate. -/
+def jubjubScalarOrder : ℕ := CompElliptic.Fields.Jubjub.JUBJUB_SCALAR_CARD
 
 /-- Maximum transaction size in bytes: a transaction cannot exceed the maximum block size
 (`2000000` bytes, a consensus rule). -/

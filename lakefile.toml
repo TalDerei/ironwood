@@ -12,5 +12,10 @@ name = "mathlib"
 scope = "leanprover-community"
 rev = "v4.30.0-rc2"
 
+[[require]]
+name = "CompElliptic"
+git = "https://github.com/daira/CompElliptic"
+rev = "74a35313bbda9d6c32f98e33f8cd71700aa120c1"
+
 [[lean_lib]]
 name = "Zcash"
