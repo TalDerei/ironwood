@@ -5,46 +5,49 @@ import Mathlib
 
 This module formalizes the algebraic heart of the Zcash binding-signature *balance* argument
 (Zcash protocol specification §4.13 Sapling / §4.14 Orchard), abstracted over an arbitrary
-`F`-module `M` so that it applies to both the Jubjub (Sapling) and Pallas (Orchard)
+`F`-module `M` so that it applies to both the Pallas (Orchard, Ironwood) and Jubjub (Sapling)
 value-commitment groups. Here `F` will be instantiated with the scalar field `ZMod r`.
 
 ## The setting
 
 Value commitments are `cv v rcv = v • V + rcv • R` for fixed generators `V` (value base) and
 `R` (randomness base). For a bundle, the binding verification key is
-`bvk = (∑ spend cv) − (∑ output cv) − v_balance • V`, which by homomorphicity equals
-`A • V + B • R`, where `A = ∑ v_in − ∑ v_out − v_balance` and `B = ∑ rcv_in − ∑ rcv_out`.
+`bvk = (∑ spend cv) − (∑ output cv) − v_balance • V`. Collecting the `V`- and `R`-terms (scalar
+multiplication distributes over the value and randomness sums) this equals `A • V + B • R`, where
+`A = ∑ v_in − ∑ v_out − v_balance` and `B = ∑ rcv_in − ∑ rcv_out`.
 
 ## How binding is expressed (and why not as "no relation exists")
 
 In a prime-order group, `V` and `R` are *always* discrete-log-related — a nontrivial `(a,b)` with
-`a • V + b • R = 0` exists; you simply cannot *find* it. So the information-theoretic statement
-"the only relation is trivial" is **false** in the group setting and must not be used as the
-binding hypothesis. Instead we phrase binding as a **reduction**:
+`a • V + b • R = 0` exists; you simply cannot find it. So the information-theoretic statement
+"the only relation is trivial" is *false* in the group setting and must not be used as the
+binding hypothesis. Instead we phrase binding as a reduction:
 
-* `§ Group-faithful` below proves, with *no* cryptographic hypothesis, that a non-balancing
+* `§ Binding reduction` below proves, with no cryptographic hypothesis, that a non-balancing
   verifying bundle **exhibits** an explicit nontrivial relation between `V` and `R`
   (`relation_of_imbalance`), equivalently the discrete log `dlog_R V` (`rand_log_of_imbalance`).
-  "The bundle balances" is then the *contrapositive under discrete-log-relation hardness* — a
-  statement about efficient adversaries, supplied by the algebraic group model or a DLR-hardness
-  assumption at the computational layer. This is the shape of the spec's argument: *if you can
-  unbalance, you can solve DL.*
+
+  "The bundle balances" then reduces to the discrete-log relation problem (DLR) — a statement about
+  efficient adversaries, supplied by the algebraic group model or a DLR hardness assumption at the
+  computational layer. This is the shape of the spec's argument: *if you can unbalance, you can
+  solve DL*. The relation and discrete-log problems are tightly equivalent (Jaeger and Tessaro,
+  https://eprint.iacr.org/2020/1213 Lemma 3), so this is no stronger than DL.
 
 * `§ Abstract model` keeps the information-theoretic `Binding` predicate, but only as a sanity
   check over a *general* `F`-module where `V, R` genuinely can be independent (e.g. a rank-≥2 free
-  module). It is **not** the group assumption and is never instantiated at a prime-order group.
+  module).
 
 ## Assumptions / later steps
 
 * **RedDSA extractability** (`bvk = bsk • R` from a verifying binding signature) — assumed, not
   proved (its proof needs a random oracle + forking); supplied as the `hExtract` hypothesis.
-* **Discrete-log-relation hardness** — discharges the reduction above to actual balance; lives in
-  the computational/AGM layer (not yet built).
-* **Lifting `A = 0` in `F = ZMod r` to integer balance** (`∑ v_in = ∑ v_out + v_balance` over ℤ) — the
-  range / no-overflow lift `intBalance_eq_zero_of_lt`, valid when `|vSum| < r`. That bound follows from
-  the 64-bit value/balance types and the spend/output/action-count bound; the per-pool lemmas
-  `orchard_natAbs_lt` / `sapling_natAbs_lt` (modules `Orchard` / `Sapling`) establish it (see also
-  `§ Integer balance` below).
+* **DLR hardness** — discharges the reduction above to actual balance; lives in the
+  computational / AGM layer (not yet built).
+* **Lifting `A = 0` in `F = ZMod r` to integer balance** (`∑ v_in = ∑ v_out + v_balance` over ℤ) —
+  the range / no-overflow lift `intBalance_eq_zero_of_lt`, valid when `|vSum| < r`. That bound
+  follows from the 64-bit value/balance types and the spend/output/action-count bound; the per-pool
+  lemmas `orchard_natAbs_lt` / `sapling_natAbs_lt` (modules `Orchard` / `Sapling`) establish it
+  (see also `§ Integer balance` below).
 -/
 
 namespace Zcash.Security.BindingSignature
@@ -52,7 +55,7 @@ namespace Zcash.Security.BindingSignature
 variable {F : Type*} [Field F]
 variable {M : Type*} [AddCommGroup M] [Module F M]
 
-/-- From RedDSA extractability (`bvk = bsk • R`) and the homomorphic decomposition of the binding
+/-- From RedDSA extractability (`bvk = bsk • R`) and the decomposition of the binding
 verification key (`bvk = A • V + B • R`), the value coefficient satisfies `A • V = (bsk − B) • R`.
 True unconditionally (pure module algebra). -/
 theorem smul_value_eq_smul_rand (V R bvk : M) (A B bsk : F)
@@ -62,13 +65,14 @@ theorem smul_value_eq_smul_rand (V R bvk : M) (A B bsk : F)
   calc A • V = bsk • R - B • R := eq_sub_of_add_eq h
     _ = (bsk - B) • R := (sub_smul bsk B R).symm
 
-/-! ### Group-faithful reduction (no cryptographic hypothesis; true in a prime-order group) -/
+/-! ### Binding reduction -/
 
-/-- **The group-faithful binding reduction.** A non-balancing (`A ≠ 0`) verifying bundle *exhibits*
-an explicit nontrivial discrete-log relation between the value base `V` and the randomness base `R`:
-the coefficients `(A, B − bsk)` are not both zero (indeed `A ≠ 0`) and `A • V + (B − bsk) • R = 0`.
-Such a relation always exists in the group; the content is that imbalance *produces* one — which,
-under discrete-log-relation hardness, cannot happen, so the bundle balances. -/
+/-- A non-balancing (`A ≠ 0`) verifying bundle exhibits an explicit nontrivial discrete-log
+relation between the value base `V` and the randomness base `R`: the coefficients `(A, B − bsk)`
+are not both zero (indeed `A ≠ 0`) and `A • V + (B − bsk) • R = 0`.
+
+Such a relation always exists in the group; the content is that imbalance *produces* one.
+Under hardness of the discrete-log relation problem, that cannot happen, so the bundle balances. -/
 theorem relation_of_imbalance (V R bvk : M) (A B bsk : F)
     (hA : A ≠ 0)
     (hExtract : bvk = bsk • R) (hSum : bvk = A • V + B • R) :
@@ -78,9 +82,9 @@ theorem relation_of_imbalance (V R bvk : M) (A B bsk : F)
   have hc : (bsk - B) + (B - bsk) = (0 : F) := by ring
   rw [hc, zero_smul]
 
-/-- Equivalent explicit form of `relation_of_imbalance`: a non-balancing verifying bundle yields the
-discrete log of `V` base `R`, namely `dlog_R V = A⁻¹ (bsk − B)`. This is the constructive extraction
-the AGM / DLR wrappers feed to discrete-log hardness. -/
+/-- Equivalent explicit form of `relation_of_imbalance`: a non-balancing verifying bundle yields
+the discrete log of `V` base `R`, namely `dlog_R V = A⁻¹ (bsk − B)`. This is the constructive
+extraction the AGM / DLR wrappers feed to discrete-log hardness. -/
 theorem rand_log_of_imbalance (V R bvk : M) (A B bsk : F) (hA : A ≠ 0)
     (hExtract : bvk = bsk • R) (hSum : bvk = A • V + B • R) :
     V = (A⁻¹ * (bsk - B)) • R := by
@@ -88,12 +92,12 @@ theorem rand_log_of_imbalance (V R bvk : M) (A B bsk : F) (hA : A ≠ 0)
   have h : A⁻¹ • (A • V) = A⁻¹ • ((bsk - B) • R) := by rw [hVR]
   rwa [smul_smul, smul_smul, inv_mul_cancel₀ hA, one_smul] at h
 
-/-! ### Abstract model (sanity check over a general module; NOT the group assumption)
+/-! ### Abstract model
 
-The information-theoretic binding predicate below is satisfiable only when `V` and `R` are genuinely
-independent — e.g. in a free `F`-module of rank ≥ 2. It validates the algebra of the reduction but
-is **false** in a prime-order group and is never instantiated there; the group uses
-`relation_of_imbalance` + DLR-hardness instead. -/
+The information-theoretic binding predicate below is satisfiable only when `V` and `R` are
+genuinely independent — e.g. in a free `F`-module of rank ≥ 2. It validates the algebra of the
+reduction but is *false* in a prime-order group and is never instantiated there; the group uses
+`relation_of_imbalance` and DLR hardness instead. -/
 
 /-- Information-theoretic binding: the only `F`-linear relation between `V` and `R` is trivial.
 Satisfiable only in rank-≥2 models; false in a cyclic group. -/
@@ -120,52 +124,27 @@ theorem value_coeff_zero (V R bvk : M) (A B bsk : F)
 
 /-! ### Integer balance: range / no-overflow lift
 
-`value_coeff_zero` (and the group-faithful reduction) conclude `A = 0` in `F = ZMod r` — balance
-*modulo the scalar-field order*. Genuine balance is the integer equation
-`∑ v_in − ∑ v_out − v_balance = 0`. The two coincide exactly as in the spec's argument (§4.13 / §4.14,
-the paragraph beginning "The preceding argument shows only that `vSum = 0 (mod r)`; … we will also
-demonstrate that it does not overflow `ValueCommitType`"): the net value `vSum` cannot wrap mod `r`,
-because each note value is range-proven and the spend/output/action count is bounded, so
-`vSum ∈ ValueCommitType = [−(r−1)/2, (r−1)/2] ⊂ (−r, r)` and `vSum = 0 (mod r)` forces `vSum = 0` over ℤ.
-The argument deliberately uses the *value-type* range — **not** `MAX_MONEY`; it works for any
+`value_coeff_zero` (and the binding reduction) conclude `A = 0` in `F = ZMod r` — balance
+*modulo the scalar-field order*, whereas genuine balance is the integer equation
+`∑ v_in − ∑ v_out − v_balance = 0`.
+
+The two coincide as in the spec's argument (§4.13 / §4.14, "... we will also demonstrate that
+it does not overflow `ValueCommitType`"). The net value `vSum` cannot wrap mod `r`, because
+each note value is range-proven and the spend/output/action count is bounded, so
+`vSum ∈ ValueCommitType ⊂ (−r, r)` and `vSum = 0 (mod r)` forces `vSum = 0` over ℤ.
+
+This argument deliberately uses the *value-type* range — not `MAX_MONEY` — so it works for any
 signed-64-bit `valueBalance`, which is all the encoding constrains.
 
-The precise bounds differ between the pools, and turn on note values being *unsigned* 64-bit while
-value balances are *signed* 64-bit:
+The per-pool bounds live in the `Orchard` and `Sapling` modules: `orchard_natAbs_lt` /
+`sapling_natAbs_lt` (with `_v4` / `_v5` corollaries) derive `N.natAbs < r` from the value-type
+range proofs and the field order, producing the `hbound` consumed by `bundle_integer_balances`.
+The per-pool reasoning is documented there — Orchard's signed net values under the consensus
+rule `n ≤ 2^16 − 1`, and Sapling's unsigned values under the transaction-size limit. -/
 
-* **Sapling (§4.13).** The Spend statements prove each spend value `v_old_i ∈ ValueType = {0 .. 2^64 − 1}`
-  and the Output statements prove each output value `v_new_j ∈ ValueType`; `vBalance` is a signed
-  two's-complement 64-bit integer in `SignedValueFieldType = [−2^63, 2^63 − 1]`. With
-  `vSum = ∑ v_old_i − ∑ v_new_j − vBalance` this gives `vSum ∈ [−m · (2^64 − 1) − 2^63 + 1, n · (2^64 − 1) + 2^63]`.
-  The action count is bounded *indirectly*, via the 2 MB transaction-size limit against the minimum
-  per-description sizes — a spend is ≥ 384 bytes (v4) or ≥ 352 bytes (v5, where the per-spend `anchor`
-  becomes transaction-wide), an output ≥ 948 bytes — giving `n ≤ ⌊2000000/384⌋ = 5208` (v4) or
-  `⌊2000000/352⌋ = 5681` (v5) spends and `m ≤ ⌊2000000/948⌋ = 2109` outputs.
-
-* **Orchard (§4.14).** Each action performs *both* a spend and an output, committing to the *net*
-  value `v_net_i = v_spend − v_output` — a difference of two unsigned 64-bit note values, hence
-  range-proven (by the Action statement) to lie in `SignedValueDifferenceType = [−2^64 + 1, 2^64 − 1]`
-  (signed, unlike Sapling's unsigned per-note `ValueType`). With `vSum = ∑ v_net_i − vBalance` and the
-  same signed-64-bit `vBalance` this gives `vSum ∈ [−n · (2^64 − 1) − 2^63 + 1, n · (2^64 − 1) + 2^63]`
-  — a *single* `n`, since each action contributes one net term. Here the action count is bounded
-  *directly* by a dedicated consensus rule `n ≤ 2^16 − 1`, independent of the block size — more elegant
-  than Sapling's size-derived bound. (The spec notes this rule is technically redundant given the 2 MB
-  transaction-size limit, but it suffices on its own.)
-
-Either way `vSum ∈ ValueCommitType ⊂ (−r, r)`.
-
-The per-pool lemmas `orchard_natAbs_lt` and `sapling_natAbs_lt` (with `_v4` / `_v5` corollaries) in the
-`Orchard` / `Sapling` modules derive `N.natAbs < r` from the per-note / per-action 64-bit range proofs
-(hypotheses standing in for the Spend/Output/Action statements' Halo2 range proofs), the
-field-size-derived action-count bounds, and the field order — producing the `hbound` consumed by
-`bundle_integer_balances`. `sapling_natAbs_lt` bounds `|vSum|` by the uniform per-element magnitude
-`|v| ≤ 2^64 − 1`, as `orchard_natAbs_lt` does for signed net values, rather than reproducing the
-spec's tighter asymmetric range; any bound below `r` suffices, so the coarser symmetric bound loses
-nothing. -/
-
-/-- No-overflow lift: an integer reducing to `0` mod `r` whose magnitude is `< r` is `0`. This turns
-balance modulo the scalar-field order (`A = 0` in `ZMod r`) into integer balance, given the value
-sums cannot wrap. -/
+/-- No-overflow: an integer reducing to `0` mod `r` whose magnitude is `< r` is `0`.
+This turns balance modulo the scalar-field order (`A = 0` in `ZMod r`) into integer balance,
+given that the value sums cannot wrap. -/
 theorem intBalance_eq_zero_of_lt {r : ℕ} [NeZero r] (N : ℤ)
     (hmod : (N : ZMod r) = 0) (hlt : N.natAbs < r) : N = 0 := by
   obtain ⟨k, rfl⟩ := (ZMod.intCast_zmod_eq_zero_iff_dvd N r).mp hmod
@@ -179,23 +158,24 @@ theorem intBalance_eq_zero_of_lt {r : ℕ} [NeZero r] (N : ℤ)
         _ ≤ r * k.natAbs := Nat.mul_le_mul (le_refl r) hpos
     omega
 
-/-- The same lift phrased with an integer absolute-value bound `|N| < r`. -/
+/-- The same conclusion phrased with an integer absolute-value bound `|N| < r`. -/
 theorem intBalance_eq_zero_of_abs_lt {r : ℕ} [NeZero r] (N : ℤ)
     (hmod : (N : ZMod r) = 0) (hlt : |N| < (r : ℤ)) : N = 0 := by
   apply intBalance_eq_zero_of_lt N hmod
   rwa [Int.abs_eq_natAbs, Nat.cast_lt] at hlt
 
-/-! ### Deriving the decomposition from a bundle (homomorphic value commitments)
+/-! ### Deriving the decomposition from a bundle (linearity of the value commitment)
 
-The hypothesis `bvk = A • V + B • R` consumed above is not an assumption: it is *derived* from the
-homomorphic value commitment `cv v rcv = v • V + rcv • R` and the shape of a bundle — lists of
-spend / output `(value, randomness)` pairs together with the declared `vBalance`. -/
+The hypothesis `bvk = A • V + B • R` consumed above is not an assumption: it can be derived
+from the value commitment `cv v rcv = v • V + rcv • R` being `F`-linear in `(v, rcv)`,
+and the shape of a bundle — lists of spend / output `(value, randomness)` pairs together
+with the declared `vBalance`. -/
 
 /-- The value commitment `cv v rcv = v • V + rcv • R`. -/
 def valueCommit (V R : M) (v rcv : F) : M := v • V + rcv • R
 
-/-- A sum of value commitments decomposes as the value-sum times `V` plus the randomness-sum times
-`R` — the homomorphic property. -/
+/-- A sum of value commitments decomposes as the value-sum times `V` plus the randomness-sum
+times `R`. `•` distributes over the value and randomness sums. -/
 theorem sum_valueCommit (V R : M) (l : List (F × F)) :
     (l.map fun p => valueCommit V R p.1 p.2).sum
       = (l.map Prod.fst).sum • V + (l.map Prod.snd).sum • R := by
@@ -206,13 +186,12 @@ theorem sum_valueCommit (V R : M) (l : List (F × F)) :
     simp only [valueCommit, add_smul]
     abel
 
-/-- The binding verification key of a bundle: sum of spend commitments minus sum of output
-commitments minus `vBalance • V`. -/
+/-- The binding verification key of a bundle: `bvk = (∑ spend cv) − (∑ output cv) − v_balance • V`. -/
 def bindingVK (V R : M) (spends outputs : List (F × F)) (vBalance : F) : M :=
   (spends.map fun p => valueCommit V R p.1 p.2).sum
     - (outputs.map fun p => valueCommit V R p.1 p.2).sum - vBalance • V
 
-/-- **`hSum`, derived.** The binding verification key decomposes homomorphically as `A • V + B • R`,
+/-- **`hSum`, derived.** The binding verification key decomposes linearly as `A • V + B • R`,
 with `A` the net value (`∑ spend values − ∑ output values − vBalance`) and `B` the net randomness
 (`∑ spend randomness − ∑ output randomness`). -/
 theorem bindingVK_decomp (V R : M) (spends outputs : List (F × F)) (vBalance : F) :
@@ -224,9 +203,9 @@ theorem bindingVK_decomp (V R : M) (spends outputs : List (F × F)) (vBalance : 
   abel
 
 /-- Putting it together: for a bundle whose binding signature verifies (RedDSA extractability gives
-`bvk = bsk • R`) and under (idealized) binding, the net value coefficient is zero **in `F`** — i.e.
+`bvk = bsk • R`) and under (idealized) binding, the net value coefficient is zero in `F` — i.e.
 balance *modulo the scalar-field order*, with no `hSum` assumption (the decomposition is derived by
-`bindingVK_decomp`). This is **not** integer balance: lifting it to `∑ v_in = ∑ v_out + v_balance`
+`bindingVK_decomp`). This is not integer balance: lifting it to `∑ v_in = ∑ v_out + v_balance`
 over ℤ needs the range / no-overflow step `intBalance_eq_zero_of_lt`, which is not applied here. -/
 theorem bundle_mod_balances (V R : M) (spends outputs : List (F × F)) (vBalance bsk : F)
     (hbind : Binding (F := F) V R)
@@ -250,14 +229,14 @@ theorem castBundle_fst_sum {r : ℕ} (l : List (ℤ × ZMod r)) :
     simp only [castBundle, List.map_cons, List.sum_cons, Int.cast_add] at ih ⊢
     rw [ih]
 
-/-- **Integer value balance** — stage 2 of the spec §4.13 / §4.14 argument, over a bundle whose values
-are the actual integer note / net values (`ℤ`), with field randomness. Stage 1 (`bundle_mod_balances`,
-on the cast bundle) gives balance *modulo the scalar-field order*; the no-overflow lift
-`intBalance_eq_zero_of_lt` upgrades it to integer balance `∑ v_in − ∑ v_out − vBalance = 0` over ℤ.
+/-- **Integer value balance** — stage 2 of the spec §4.13 / §4.14 argument, over a bundle whose
+values are the actual integer note / net values (`ℤ`), with field randomness. This stage translates
+balance *modulo the scalar-field order*, via `intBalance_eq_zero_of_lt`, to integer balance
+`∑ v_in − ∑ v_out − vBalance = 0` over ℤ.
 
-The integer→field cast is derived using `castBundle_fst_sum`: the only added input is the no-overflow
-bound `hbound`, supplied per-pool by `orchard_natAbs_lt` / `sapling_natAbs_lt` (modules
-`BindingSignature.{Orchard,Sapling}`) from the value-type range proofs. -/
+The integer→field cast is derived using `castBundle_fst_sum`: the only added input is the
+no-overflow bound `hbound`, which can be provided by protocol-specific value-type range proofs
+(`BindingSignature.Orchard.orchard_natAbs_lt` and `BindingSignature.Sapling.sapling_natAbs_lt`). -/
 theorem bundle_integer_balances {r : ℕ} [Fact (Nat.Prime r)]
     {M : Type*} [AddCommGroup M] [Module (ZMod r) M]
     (V R : M) (spends outputs : List (ℤ × ZMod r)) (vBalance : ℤ) (bsk : ZMod r)
@@ -292,20 +271,10 @@ theorem abs_listSum_le {l : List ℤ} {M : ℤ} (h : ∀ x ∈ l, |x| ≤ M) :
       _ ≤ M + (t.length : ℤ) * M := add_le_add ha ht
       _ = ((a :: t).length : ℤ) * M := by rw [List.length_cons]; push_cast; ring
 
-/-- From a magnitude bound `|N| ≤ B` and the field-order gap `B < r`, the residue `N.natAbs < r`
-(symmetric form — used by Orchard, whose net values are signed). -/
+/-- From a magnitude bound `|N| ≤ B` and the field-order gap `B < r`, the residue `N.natAbs < r`. -/
 theorem natAbs_lt_of_abs_le {r : ℕ} {N B : ℤ} (hN : |N| ≤ B) (hr : B < (r : ℤ)) :
     N.natAbs < r := by
   have h : (N.natAbs : ℤ) < (r : ℤ) := by rw [← Int.abs_eq_natAbs]; exact lt_of_le_of_lt hN hr
-  exact_mod_cast h
-
-/-- Two-sided form for an *asymmetric* range `lo ≤ N ≤ hi` with both endpoints in `(−r, r)` — used by
-Sapling, whose unsigned note values give an asymmetric `vSum` range. -/
-theorem natAbs_lt_of_bounds {r : ℕ} {N lo hi : ℤ}
-    (hlo : lo ≤ N) (hhi : N ≤ hi) (hrlo : -(r : ℤ) < lo) (hrhi : hi < (r : ℤ)) :
-    N.natAbs < r := by
-  have h : |N| < (r : ℤ) := abs_lt.mpr ⟨lt_of_lt_of_le hrlo hlo, lt_of_le_of_lt hhi hrhi⟩
-  rw [Int.abs_eq_natAbs] at h
   exact_mod_cast h
 
 end Zcash.Security.BindingSignature
