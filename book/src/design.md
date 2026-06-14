@@ -132,6 +132,12 @@ digest, not by reusing Orchard's empty-bundle digest.
 Version 6 signature hashing uses the version 6 transaction hash path. This
 ensures signatures bind to the Ironwood bundle when it is present.
 
+The bundle anchor is excluded from version 6 txid and signature hashing, and is
+committed in the authorization digest instead. Because the signature no longer
+binds the anchor, a spend can be pre-signed before the anchor it is finalized
+against exists. The anchor is still bound at the consensus layer, through the
+block's authorizing-data commitment.
+
 ## Post-NU7 Orchard Value Rule
 
 After NU7 activation, no funds can flow into Orchard. Transactions must not have

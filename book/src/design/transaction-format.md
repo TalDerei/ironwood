@@ -37,7 +37,6 @@ flowchart TD
         NonCompact["actions non-compact hash<br/>cv, rk, remaining enc ciphertext, out ciphertext"]
         Flags["bundle flags"]
         Value["value balance"]
-        Anchor["bundle anchor"]
     end
 
     OrchardBundle --> Compact
@@ -45,16 +44,20 @@ flowchart TD
     OrchardBundle --> NonCompact
     OrchardBundle --> Flags
     OrchardBundle --> Value
-    OrchardBundle --> Anchor
 
     IronwoodBundle -. same fields .-> Compact
     IronwoodBundle -. same fields .-> Memos
     IronwoodBundle -. same fields .-> NonCompact
     IronwoodBundle -. same fields .-> Flags
     IronwoodBundle -. same fields .-> Value
-    IronwoodBundle -. same fields .-> Anchor
 ```
 
 The same rule applies to authorization hashing: Ironwood follows the Orchard
 bundle authorization structure, but uses Ironwood-specific personalization
 strings.
+
+In version 6 the bundle **anchor** is excluded from the txid bundle digest
+shown above, and is instead committed in the **authorization digest**. This
+keeps both the txid and the signature sighash independent of the anchor, so a
+spend can be signed before the anchor it is finalized against — the
+note-commitment-tree root — exists.
