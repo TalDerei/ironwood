@@ -7,3 +7,4 @@
 - [User Documentation](user.md) <!-- todo -->
 - [Design](design.md)
   - [Transaction Format](design/transaction-format.md)
+- [Formal Verification](formal-verification.md) <!-- todo -->
