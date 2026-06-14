@@ -32,8 +32,9 @@ funds.
 
 ## Quantum-Recoverable Notes
 
-ZIP 2005 defines the Ironwood note plaintext format with lead byte `0x03`. This
-is the quantum-recoverable note plaintext format.
+ZIP 2005 defines a new Orchard note plaintext format with lead byte `0x03`: the
+quantum-recoverable note plaintext format. Ironwood adopts this format for its
+notes.
 
 In wallet-facing code, Ironwood notes are Orchard-shaped notes using the
 Ironwood note plaintext format. Existing Orchard notes remain ordinary Orchard

@@ -18,11 +18,17 @@ randomness is derived.
 
 ## Ironwood Notes
 
-ZIP 2005 defines the Ironwood note plaintext format with lead byte `0x03`. This
-is the quantum-recoverable note plaintext format.
+ZIP 2005 defines a new Orchard note plaintext format with lead byte `0x03`: the
+quantum-recoverable note plaintext format. Ironwood adopts this format for its
+notes. ZIP 2005 changes how Orchard notes are constructed; it does not by itself
+define the Ironwood pool, note commitment tree, or nullifier set. Those are
+Ironwood's own design, layered on top of the ZIP 2005 note-level change.
 
 Older Orchard notes use note plaintext lead byte `0x02`. For those notes, the note
-commitment randomness is derived from `rseed` and the note position seed `rho`.
+commitment randomness is derived from `rseed` and `rho`. `rseed` is the 32-byte
+random seed the sender picks for a note. When a note is created, its `rho` is
+set to `nf^old`, the nullifier of the input note spent in the same action (the
+nullifier that action reveals).
 
 For Ironwood notes, the randomness is instead derived from the note contents. The
 derivation binds the randomness to:
@@ -50,7 +56,11 @@ flowchart LR
 
 This makes it possible for a future recovery protocol to prove that a recovered
 note corresponds to a real note with fixed contents, rather than to a forged
-choice of note fields.
+choice of note fields. Because `rcm` is now a hash of the note contents, the
+derivation can be recomputed from the recovered fields and checked against the
+on-chain commitment. The Ironwood spend proof does not itself enforce this
+derivation; the check is instead carried out by a future, dedicated recovery
+statement that proves `rcm` was derived from the note contents.
 
 Ironwood outputs are Orchard-style notes using the Ironwood note plaintext
 format. Ironwood still uses Orchard-shaped actions, receivers, and note
