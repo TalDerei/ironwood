@@ -25,9 +25,11 @@ Version 6 transactions support the following pools:
 - Orchard, and
 - Ironwood.
 
-Transaction version 6 is the same as transaction version 5, except that it adds
-an Ironwood bundle. Sapling, Orchard, and transparent transaction components are
-otherwise unchanged from version 5.
+Transaction version 6 is based on transaction version 5 and adds an Ironwood
+bundle. Transparent and Sapling components are unchanged from version 5. The
+Orchard component is the same Orchard bundle, but version 6 changes how it is
+encoded, hashed, and verified; see
+[Orchard Bundle Changes in Version 6](#orchard-bundle-changes-in-version-6).
 
 ## Separate State
 
@@ -112,7 +114,38 @@ Orchard bundle, but is interpreted under the Ironwood protocol context.
 Version 6 is the default transaction version for NU7. Version 5 remains the
 transaction version for NU5 through NU6.2.
 
+## Orchard Bundle Changes in Version 6
+
+The Orchard bundle keeps its version 5 layout, but version 6 changes it in three
+consensus-visible ways. Together these wind Orchard down into a spend-only,
+same-address pool while reusing its action machinery.
+
+- **Flag encoding.** Orchard bundle flags are serialized in the NU6.3 flag
+  format, which gives meaning to the `enableCrossAddress` flag (bit 2). In
+  version 5 that bit is reserved and must be zero. After NU7 an Orchard bundle
+  must *not* set `enableCrossAddress`: consensus rejects a version 6 Orchard
+  bundle that sets it, which forces the circuit's `disableCrossAddress` input and
+  restricts Orchard actions to change or withdrawal. Ironwood, by contrast, may
+  set `enableCrossAddress`. See [Action Circuit](design/action-circuit.md).
+- **Anchor placement.** The Orchard anchor is excluded from the version 6 txid
+  and signature hash and is committed in the authorization digest instead, the
+  same as Ironwood. See [Transaction Hashing](#transaction-hashing).
+- **Verifying key.** Version 6 Orchard bundles are verified with the Ironwood
+  circuit verifying key, not the version 5 (post-NU6.2) key, because the
+  cross-address restriction must be enforceable on Orchard actions.
+
+<<<<<<< HEAD
+## ZIP 233 in Version 6
+
+Version 6 transactions do not carry a ZIP 233 explicit-fee (burn) field. ZIP 233
+handling is confined to the experimental `zfuture` path and is not part of the
+NU7 version 6 format. NU7 and `zfuture` are mutually exclusive deployments and
+cannot be enabled together.
+
 ## Transaction Hashing
+=======
+### Transaction Hashing
+>>>>>>> 128e1e6 (nit remove)
 
 Ironwood uses Orchard-style bundle and action hashing, but with
 Ironwood-specific personalization strings.
@@ -138,6 +171,25 @@ binds the anchor, a spend can be pre-signed before the anchor it is finalized
 against exists. The anchor is still bound at the consensus layer, through the
 block's authorizing-data commitment.
 
+## Chain History Tree
+
+The chain history tree (the FlyClient MMR introduced in
+[ZIP 221](https://zips.z.cash/zip-0221)) gains Ironwood metadata. From NU7
+onward, history nodes use a new node-data version that, in addition to the
+existing Sapling and Orchard fields, commits to:
+
+- the Ironwood note commitment tree root at the start of the node's block range,
+- the Ironwood note commitment tree root at the end of the node's block range,
+  and
+- the number of transactions in the range that contain an Ironwood bundle.
+
+A leaf's start and end Ironwood roots are both the final Ironwood tree root after
+its block. Combining two subtrees takes the left child's start root, the right
+child's end root, and the sum of the two transaction counts, and the maximum
+history node-data size grows to hold the new fields. The effect is that, from
+NU7 onward, the chain history commitment binds the Ironwood tree state and
+Ironwood activity of every range, just as it already binds Sapling and Orchard.
+
 ## Post-NU7 Orchard Value Rule
 
 After NU7 activation, no funds can flow into Orchard. Transactions must not have
@@ -151,6 +203,24 @@ The rule still permits:
 
 This lets wallets spend existing Orchard funds while preventing newly created
 shielded value from being placed back into Orchard.
+
+## Coinbase After NU7
+
+Because new value may not enter Orchard after NU7, coinbase rules change so that
+block rewards are never paid into the Orchard pool:
+
+- **No Orchard coinbase outputs.** Coinbase reward outputs are routed to Sapling
+  or transparent receivers; the Orchard receiver is no longer a reward
+  destination after NU7. A miner address whose unified address contains *only* an
+  Orchard receiver is therefore rejected for coinbase use.
+- **Coinbase value balance includes Ironwood.** The coinbase balance check
+  accounts for the Ironwood value balance alongside Sapling and Orchard. Any
+  Ironwood output in a coinbase transaction must be decryptable with the all-zero
+  outgoing viewing key, as already required for Sapling and Orchard, so that
+  coinbase funds are not burned.
+- **No coinbase spends.** A coinbase transaction must not enable spends in its
+  Ironwood bundle (`EnableSpendsIronwood` must be unset), mirroring the existing
+  rule for Orchard.
 
 ## Wallet Routing
 
