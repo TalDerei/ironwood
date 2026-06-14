@@ -74,6 +74,12 @@ But transactions cannot use Orchard as a destination for newly created value.
 New shielded outputs that would previously have been Orchard outputs are routed
 to Ironwood instead.
 
+The "split into change notes" half of this constraint (requiring each retained
+output to return to the address it was spent from) is enforced in the Action
+circuit as the cross-address restriction. The "no new value" half is the
+value-balance rule below. See [Action Circuit](design/action-circuit.md) for the
+exact circuit mechanism.
+
 ## Quantum-Recoverable Ironwood Notes
 
 ZIP 2005 defines a new Orchard note plaintext format with lead byte `0x03`: the
@@ -203,6 +209,10 @@ The current design still has placeholders that should be finalized before a
 production protocol specification:
 
 - the NU7 consensus branch ID,
-- the exact circuit/proof-system changes, if any, beyond Orchard reuse,
 - final ZIP text for transaction version 6 and Ironwood hashing, and
 - final activation heights and deployment rules.
+
+The circuit and proof-system changes, previously open here, are now specified in
+[Action Circuit](design/action-circuit.md): Ironwood reuses the Orchard Action
+circuit and adds a single new constraint, the cross-address restriction, with its
+own proving and verifying keys.
