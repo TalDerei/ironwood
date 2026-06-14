@@ -34,7 +34,7 @@ flowchart TD
     subgraph Shape["Same Orchard-style bundle hash shape"]
         Compact["actions compact hash<br/>nf, cmx, epk, compact ciphertext"]
         Memos["actions memo hash<br/>memo ciphertext"]
-        NonCompact["actions non-compact hash<br/>cv, rk, remaining ciphertext"]
+        NonCompact["actions non-compact hash<br/>cv, rk, remaining enc ciphertext, out ciphertext"]
         Flags["bundle flags"]
         Value["value balance"]
         Anchor["bundle anchor"]
