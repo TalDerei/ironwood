@@ -59,12 +59,9 @@ existing Sapling and Orchard fields, commits to:
   and
 - the number of transactions in the range that contain an Ironwood bundle.
 
-A leaf's start and end Ironwood roots are both the final Ironwood tree root after
-its block. Combining two subtrees takes the left child's start root, the right
-child's end root, and the sum of the two transaction counts, and the maximum
-history node-data size grows to hold the new fields. The effect is that, from
-NU7 onward, the chain history commitment binds the Ironwood tree state and
-Ironwood activity of every range, just as it already binds Sapling and Orchard.
+The effect is that, from NU7 onward, the chain history commitment binds the
+Ironwood tree state and Ironwood activity of every block range, just as it
+already binds Sapling and Orchard.
 
 ## Actions and Notes
 
@@ -147,19 +144,17 @@ The Orchard bundle keeps its version 5 layout, but version 6 changes it in three
 consensus-visible ways. Together these wind Orchard down into a spend-only,
 same-address pool while reusing its action machinery.
 
-- **Flag encoding.** Orchard bundle flags are serialized in the NU6.3 flag
-  format, which gives meaning to the `enableCrossAddress` flag (bit 2). In
-  version 5 that bit is reserved and must be zero. After NU7 an Orchard bundle
-  must *not* set `enableCrossAddress`: consensus rejects a version 6 Orchard
-  bundle that sets it, which forces the circuit's `disableCrossAddress` input and
-  restricts Orchard actions to change or withdrawal. Ironwood, by contrast, may
-  set `enableCrossAddress`. See [Action Circuit](design/action-circuit.md).
+- **Flag encoding.** Orchard bundle flags gain a new `enableCrossAddress` flag.
+  After NU7 an Orchard bundle must *not* set it: consensus rejects a version 6
+  Orchard bundle that does, restricting Orchard actions to change or withdrawal.
+  Ironwood, by contrast, may set it. See
+  [Action Circuit](design/action-circuit.md).
 - **Anchor placement.** The Orchard anchor is excluded from the version 6 txid
   and signature hash and is committed in the authorization digest instead, the
   same as Ironwood. See [Transaction Hashing](#transaction-hashing).
 - **Verifying key.** Version 6 Orchard bundles are verified with the Ironwood
-  circuit verifying key, not the version 5 (post-NU6.2) key, because the
-  cross-address restriction must be enforceable on Orchard actions.
+  circuit verifying key, not the version 5 key, because the cross-address
+  restriction must be enforceable on Orchard actions.
 
 ### Transaction Hashing
 
@@ -213,13 +208,11 @@ block rewards are never paid into the Orchard pool:
   destination after NU7. A miner address whose unified address contains *only* an
   Orchard receiver is therefore rejected for coinbase use.
 - **Coinbase value balance includes Ironwood.** The coinbase balance check
-  accounts for the Ironwood value balance alongside Sapling and Orchard. Any
-  Ironwood output in a coinbase transaction must be decryptable with the all-zero
-  outgoing viewing key, as already required for Sapling and Orchard, so that
-  coinbase funds are not burned.
+  accounts for the Ironwood value balance alongside Sapling and Orchard, and
+  Ironwood coinbase outputs must be recoverable, as already required for Sapling
+  and Orchard, so that coinbase funds are not burned.
 - **No coinbase spends.** A coinbase transaction must not enable spends in its
-  Ironwood bundle (`EnableSpendsIronwood` must be unset), mirroring the existing
-  rule for Orchard.
+  Ironwood bundle, mirroring the existing rule for Orchard.
 
 ## Wallet and Tooling
 

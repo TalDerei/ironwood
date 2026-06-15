@@ -2,8 +2,7 @@
 
 Version 6 follows the version 5 transaction format, with an Ironwood bundle
 added after the Orchard bundle. Within version 6, the Orchard bundle keeps its
-version 5 layout but switches to the NU6.3 flag encoding, which gives the
-`enableCrossAddress` flag (bit 2) its meaning. See
+version 5 layout but gains a new `enableCrossAddress` flag. See
 [Orchard Bundle Changes in Version 6](../design.md#orchard-bundle-changes-in-version-6).
 
 At the transaction ID layer, Ironwood is another child in the transaction hash
