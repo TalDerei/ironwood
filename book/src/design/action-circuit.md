@@ -2,7 +2,7 @@
 
 Ironwood reuses the Orchard Action circuit. The proof system, curves, gadgets,
 and the action statement are inherited from Orchard unchanged. There is exactly
-one circuit-level addition: an optional **cross-address restriction** that, when
+one circuit-level addition: a chain-wide, configurable **cross-address restriction** that, when
 active, forces an action's output note to be addressed to the same receiver as
 the note it spends.
 
