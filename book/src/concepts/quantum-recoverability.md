@@ -18,7 +18,7 @@ randomness is derived.
 
 ## Ironwood Notes
 
-ZIP 2005 defines a new Orchard note plaintext format with lead byte `0x03`: the
+ZIP 2005 defines a new note plaintext format with lead byte `0x03`: the
 quantum-recoverable note plaintext format. Ironwood adopts this format for its
 notes. ZIP 2005 changes how Orchard notes are constructed; it does not by itself
 define the Ironwood pool, note commitment tree, or nullifier set. Those are
