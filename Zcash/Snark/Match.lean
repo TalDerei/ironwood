@@ -13,11 +13,12 @@ compare the two MSMs. A match means the two assembly *formulas* agree.
 
 This module provides the match's logical content:
 
-* `MsmMatch` — two MSMs match iff their `g`/`w`/`u` coefficients and their `other` term lists agree, and
-  `msmMatch_iff_eq` shows that is exactly equality. So the match is checked coefficient-by-coefficient —
-  precisely the comparison against a captured MSM. Because both sides use the *same* proof commitments as
-  the bases (the Lean assembly's `G` elements are the captured proof's commitments), the bases of the
-  `other` terms agree by construction, and the match reduces to the concrete `F_p` scalar coefficients.
+* `MsmMatch` — two MSMs match iff their `g`/`w`/`u` coefficients are equal and their `other` term lists
+  agree up to reordering (`List.Perm`), and `msmMatch_eval` shows a match implies equal evaluations (the
+  term sum is order-independent). So the match is the concrete comparison against a captured MSM. Because
+  both sides use the *same* proof commitments as the bases (the Lean assembly's `G` elements are the
+  captured proof's commitments), the bases agree by construction, and the match reduces to the concrete
+  `F_p` scalar coefficients (with `other` compared as a multiset, since assembly order is immaterial).
 * `fingerprint_match_random_eval_sound` — the soundness of the cheaper **random-evaluation** match: viewing
   a coefficient difference as a polynomial in the proof scalars and challenges, a uniformly random
   evaluation fails to witness a real mismatch only with probability `≤ d / p` (`Schwartz–Zippel`, via
@@ -38,19 +39,23 @@ hand-waved), so the numeric comparison is of the scalar coefficients, with the b
 
 namespace Zcash.Snark
 
-/-- Two MSMs **match** iff their SRS-generator coefficients, the `w`/`u` coefficients, and the `other`
-term lists agree. This is the fingerprint match, stated coefficient-by-coefficient. -/
+/-- Two MSMs **match** iff their SRS-generator coefficients and the `w`/`u` coefficients are equal, and
+their `other` term lists agree **up to reordering** (`List.Perm`). The MSM is
+`Σᵢ gScalarsᵢ • gᵢ + wScalar • w + uScalar • u + Σ (c • P)`; the final term sum is order-independent, so
+a permutation of `other` denotes the same MSM and the same evaluation (`msmMatch_eval`). The term order
+is only a serialization artifact of how each assembler appends, so the match is order-insensitive there. -/
 def MsmMatch {k : ℕ} {F G : Type*} (m₁ m₂ : Msm k F G) : Prop :=
-  m₁.gScalars = m₂.gScalars ∧ m₁.wScalar = m₂.wScalar ∧ m₁.uScalar = m₂.uScalar ∧ m₁.other = m₂.other
+  m₁.gScalars = m₂.gScalars ∧ m₁.wScalar = m₂.wScalar ∧ m₁.uScalar = m₂.uScalar ∧ m₁.other.Perm m₂.other
 
-/-- The fingerprint match is exactly MSM equality: it suffices to compare the coefficients and terms. -/
-theorem msmMatch_iff_eq {k : ℕ} {F G : Type*} (m₁ m₂ : Msm k F G) : MsmMatch m₁ m₂ ↔ m₁ = m₂ := by
-  constructor
-  · rintro ⟨hg, hw, hu, ho⟩
-    cases m₁; cases m₂
-    simp_all
-  · rintro rfl
-    exact ⟨rfl, rfl, rfl, rfl⟩
+/-- The fingerprint match implies **equal evaluations**: matching MSMs denote the same group element
+under any SRS, so the deployed verifier's accept check (`eval = identity`) transfers. The `g`/`w`/`u`
+coefficients are equal and the `other` terms agree up to reordering, and the MSM's term sum is
+order-independent. -/
+theorem msmMatch_eval {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
+    {m₁ m₂ : Msm srs.k F G} (h : MsmMatch m₁ m₂) : m₁.eval srs = m₂.eval srs := by
+  obtain ⟨hg, hw, hu, ho⟩ := h
+  unfold Msm.eval
+  rw [hg, hw, hu, (ho.map (fun t => t.1 • t.2)).sum_eq]
 
 /-- `MsmMatch` is decidable when the coefficients and terms are: this is the concrete check run against a
 captured MSM (compare the `2 ^ k` g-scalars, the `w`/`u` scalars, and the term list). -/

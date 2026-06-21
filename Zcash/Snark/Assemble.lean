@@ -67,7 +67,7 @@ structure VerifyingKey (shape : Shape) (F G : Type*) where
   fixedCommitment : ℕ → G
   instanceCommitment : Fin shape.numProofs → ℕ → G
   permutationCommonCommitment : Fin shape.numPermutationColumns → G
-  permutationChunks : List (List (ColumnRef × Fin shape.numPermutationColumns))
+  permutationChunks : List (List (ColumnRef × ℕ))
   lookupInputExprs : Fin shape.numLookups → List (Expr F)
   lookupTableExprs : Fin shape.numLookups → List (Expr F)
 
@@ -105,7 +105,7 @@ def subProofExpressions {shape : Shape} {F G : Type*} [Field F] (vk : VerifyingK
   let gateE := vk.gates.map (fun g => g.eval fE aE iE)
   let sets := List.ofFn (fun s => ps.permutationSetEvals p s)
   let chunks := (sets.zip vk.permutationChunks).map (fun sc =>
-    (sc.1, sc.2.map (fun cr => (cr.1.resolve iE aE fE, ps.permutationCommonEvals cr.2))))
+    (sc.1, sc.2.map (fun cr => (cr.1.resolve iE aE fE, finFn ps.permutationCommonEvals cr.2))))
   let permE := permutationExpressions sets chunks ch.beta ch.gamma ch.x vk.delta vk.chunkLen l0 lLast lBlind
   let lookupE := (List.ofFn (fun l => lookupExpressions (ps.lookupEvals p l)
     (vk.lookupInputExprs l) (vk.lookupTableExprs l) fE aE iE ch.theta ch.beta ch.gamma l0 lLast lBlind)).flatten
