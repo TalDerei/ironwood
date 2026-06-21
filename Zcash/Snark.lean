@@ -15,3 +15,4 @@ import Zcash.Snark.Expressions
 import Zcash.Snark.Assemble
 import Zcash.Snark.FiatShamir
 import Zcash.Snark.Match
+import Zcash.Snark.Soundness
