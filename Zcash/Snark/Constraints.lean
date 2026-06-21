@@ -1,5 +1,6 @@
 import Mathlib
 import Zcash.Snark.Field
+import Zcash.Snark.Expressions
 
 /-!
 # The constraint layer: Schwartz–Zippel soundness of the vanishing check
@@ -62,5 +63,37 @@ every challenge. -/
 theorem quotientCheck_complete (numerator h : Polynomial Fp) (n : ℕ)
     (heq : numerator = h * (X ^ n - 1)) (x : Fp) : quotientCheck numerator h n x := by
   simp only [quotientCheck, heq, eval_mul, eval_sub, eval_pow, eval_X, eval_one]
+
+/-! ## Lifting gate expressions to polynomials
+
+The verifier evaluates each gate `Expr` at the claimed evaluations, which are the committed column
+polynomials evaluated at `x`. `Expr.toPoly` lifts a gate to the corresponding univariate polynomial
+(each query → its column polynomial), and `Expr.eval_toPoly` shows the lift commutes with evaluation:
+evaluating the gate polynomial at `x` equals the verifier's gate evaluation. So the assembled gate value
+(`Zcash.Snark.Expr.eval` at the evals) is literally a polynomial evaluation — the `numerator` of the
+`quotientCheck` — connecting `quotientCheck_sound` to the actual Orchard gates. -/
+
+/-- Lift a gate `Expr` to a univariate polynomial, replacing each query with its column polynomial. -/
+noncomputable def Expr.toPoly (fixedCols adviceCols instanceCols : ℕ → Polynomial Fp) :
+    Expr Fp → Polynomial Fp
+  | .constant c => Polynomial.C c
+  | .fixed i => fixedCols i
+  | .advice i => adviceCols i
+  | .instance i => instanceCols i
+  | .negated a => -(Expr.toPoly fixedCols adviceCols instanceCols a)
+  | .sum a b => Expr.toPoly fixedCols adviceCols instanceCols a
+      + Expr.toPoly fixedCols adviceCols instanceCols b
+  | .product a b => Expr.toPoly fixedCols adviceCols instanceCols a
+      * Expr.toPoly fixedCols adviceCols instanceCols b
+  | .scaled a c => Expr.toPoly fixedCols adviceCols instanceCols a * Polynomial.C c
+
+/-- The lift commutes with evaluation: the gate polynomial at `x` equals the gate evaluated at the
+columns' values at `x` — i.e. the verifier's gate evaluation is a polynomial evaluation. -/
+theorem Expr.eval_toPoly (fixedCols adviceCols instanceCols : ℕ → Polynomial Fp) (x : Fp)
+    (e : Expr Fp) :
+    (Expr.toPoly fixedCols adviceCols instanceCols e).eval x
+      = e.eval (fun i => (fixedCols i).eval x) (fun i => (adviceCols i).eval x)
+          (fun i => (instanceCols i).eval x) := by
+  induction e <;> simp_all [Expr.toPoly, Expr.eval]
 
 end Zcash.Snark
