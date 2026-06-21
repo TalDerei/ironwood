@@ -17,3 +17,4 @@ import Zcash.Snark.FiatShamir
 import Zcash.Snark.Match
 import Zcash.Snark.Soundness
 import Zcash.Snark.Extraction
+import Zcash.Snark.Constraints
