@@ -28,6 +28,7 @@ element, or an MSM — the vanishing argument's folded `h` commitment is supplie
 inductive CommitmentRef (k : ℕ) (F G : Type*) where
   | point : G → CommitmentRef k F G
   | msm : Msm k F G → CommitmentRef k F G
+  deriving DecidableEq
 
 /-- A multiopen query (halo2 `VerifierQuery`): open `commitment` at `point`, claiming the value `eval`. -/
 structure VerifierQuery (k : ℕ) (F G : Type*) where

@@ -187,4 +187,55 @@ def assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] (ps : ProofString s
   ipaFold ch.x3 opened.2 ps.ipaC ps.ipaF ch.xi ch.z (List.ofFn ch.ipaRound) ps.ipaS
     (List.ofFn ps.ipaRounds) opened.1
 
+/-- Re-derivation of halo2 `construct_intermediate_sets` (`poly/multiopen.rs`): group the flat opening
+queries into point sets, producing the `MultiopenGrouped` that `assembleOpening` consumes — so the
+grouping is derived in Lean rather than supplied. Point indices and commitment order follow first
+appearance (insertion order, not field order); within a set, points are ordered by point index. Per
+point set it returns the commitments routed to it, in the accumulate order (reversed commitment order),
+each with its evaluation vector over the set's points, plus the set's points.
+
+The conflicting-eval guard (halo2's `None`) is omitted: the audit established it is unreachable for a
+well-formed verifying key (a defensive invariant on the verifier's own bookkeeping, not prover data).
+Commitments are grouped by value equality, which coincides with halo2's pointer identity whenever
+distinct commitments have distinct values — always the case for a real proof. -/
+def constructIntermediateSets {k : ℕ} {F G : Type*} [DecidableEq F] [DecidableEq G]
+    (queries : List (VerifierQuery k F G)) : MultiopenGrouped k F G :=
+  -- distinct points, in first-appearance order; `pointIdx p` is `p`'s index in that order
+  let points : List F :=
+    queries.foldl (fun acc q => if q.point ∈ acc then acc else acc ++ [q.point]) []
+  let pointIdx : F → ℕ := fun p => points.findIdx (fun x => decide (x = p))
+  -- distinct commitments, in first-appearance order (halo2 `IndexMap` insertion order)
+  let comms : List (CommitmentRef k F G) :=
+    queries.foldl (fun acc q => if q.commitment ∈ acc then acc else acc ++ [q.commitment]) []
+  -- per commitment: its ascending point-index set, and its eval vector over that set
+  let commData : List (CommitmentRef k F G × List ℕ × List F) :=
+    comms.map fun c =>
+      let qs := queries.filter fun q => decide (q.commitment = c)
+      let idxs := qs.map fun q => pointIdx q.point
+      let idxSet := (List.range points.length).filter fun i => idxs.contains i
+      let evals := idxSet.filterMap fun i =>
+        (qs.find? fun q => decide (pointIdx q.point = i)).map (·.eval)
+      (c, idxSet, evals)
+  -- distinct point-index sets, first-appearance order (over commitments) → set index
+  let setList : List (List ℕ) :=
+    commData.foldl (fun acc cd => if cd.2.1 ∈ acc then acc else acc ++ [cd.2.1]) []
+  let setIdx : List ℕ → ℕ := fun s => setList.findIdx fun x => decide (x = s)
+  -- accumulate order is reversed commitment order; per set, the (commitment, evals) routed to it
+  let revData := commData.reverse
+  let sets : List (List (CommitmentRef k F G × List F)) :=
+    (List.range setList.length).map fun si =>
+      (revData.filter fun cd => decide (setIdx cd.2.1 = si)).map fun cd => (cd.1, cd.2.2)
+  -- per set, its points in ascending point-index order
+  let setPoints : List (List F) := setList.map fun s => s.filterMap fun i => points[i]?
+  { sets := sets, points := setPoints }
+
+/-- The full verifier MSM: build the opening queries, re-derive the multiopen grouping
+(`constructIntermediateSets`), then assemble (`assembleFinalMsm`). This is the deployed verifier's
+fingerprint as a pure function of the verifying key, proof string, and challenges — with the
+`construct_intermediate_sets` grouping derived in Lean rather than supplied as input. -/
+def assemble {shape : Shape} {F G : Type*} [Field F] [DecidableEq F] [DecidableEq G] [Inhabited G]
+    (vk : VerifyingKey shape F G) (ps : ProofString shape F G) (ch : Challenges shape.k F) :
+    Msm shape.k F G :=
+  assembleFinalMsm ps ch (constructIntermediateSets (assembleQueries vk ps ch))
+
 end Zcash.Snark

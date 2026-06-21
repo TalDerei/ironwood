@@ -115,13 +115,13 @@ def deriveChallenges {shape : Shape} {F G : Type*} [Zero F] (fs : FiatShamir F G
     x1 := x1, x2 := x2, x3 := x3, x4 := x4, xi := xi, z := z,
     ipaRound := fun j => ipaRes.2.getD j.val 0 }
 
-/-- The deployed (non-interactive) verifier's fingerprint MSM: `assembleFinalMsm` at the Fiat-Shamir
-challenges. `grouped` is the `construct_intermediate_sets` output (see `Zcash.Snark.assembleQueries`).
-The Fiat-Shamir assumption (the random-oracle step) is what carries the interactive verifier's
-soundness to this non-interactive MSM. -/
-def nonInteractiveFingerprint {shape : Shape} {F G : Type*} [Field F] (fs : FiatShamir F G)
-    (init : List (TranscriptElt F G)) (ps : ProofString shape F G)
-    (grouped : MultiopenGrouped shape.k F G) : Msm shape.k F G :=
-  assembleFinalMsm ps (deriveChallenges fs init ps) grouped
+/-- The deployed (non-interactive) verifier's fingerprint MSM: `assemble` at the Fiat-Shamir
+challenges (the multiopen grouping is re-derived in Lean by `constructIntermediateSets`). The
+Fiat-Shamir assumption (the random-oracle step) is what carries the interactive verifier's soundness to
+this non-interactive MSM. -/
+def nonInteractiveFingerprint {shape : Shape} {F G : Type*} [Field F] [DecidableEq F] [DecidableEq G]
+    [Inhabited G] (fs : FiatShamir F G) (init : List (TranscriptElt F G))
+    (vk : VerifyingKey shape F G) (ps : ProofString shape F G) : Msm shape.k F G :=
+  assemble vk ps (deriveChallenges fs init ps)
 
 end Zcash.Snark

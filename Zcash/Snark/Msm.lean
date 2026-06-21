@@ -31,6 +31,7 @@ structure Msm (k : ℕ) (F G : Type*) where
   wScalar : F
   uScalar : F
   other : List (F × G)
+  deriving DecidableEq
 
 namespace Msm
 
