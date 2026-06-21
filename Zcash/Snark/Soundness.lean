@@ -66,4 +66,37 @@ theorem commit_linear (srs : SRS G) (c c' : F) (a a' : Fin (2 ^ srs.k) → F) :
     commit srs (c • a + c' • a') = c • commit srs a + c' • commit srs a' := by
   rw [commit_add, commit_smul, commit_smul]
 
+/-! ## The IPA round fold and its 2-special-soundness extractor
+
+One round of the inner-product argument halves the witness. The prover sends the cross-commitments
+`(Lⱼ, Rⱼ)`, the verifier sends a challenge `uⱼ`, and the length-`2m` vector folds to length `m`. The
+core of special soundness is that the *same* halves, folded at two *distinct* challenges, are uniquely
+recoverable — so an accepting prover is committed to a fixed witness, which the extractor recovers. -/
+
+/-- One IPA round folds a vector into its lower half plus `u` times its upper half (`compute_s`'s
+`(1, uⱼ)` structure): `foldVec lo hi u = lo + u • hi`. The round commitments `(Lⱼ, Rⱼ)` pin `lo`, `hi`. -/
+def foldVec {m : ℕ} (lo hi : Fin m → F) (u : F) : Fin m → F := lo + u • hi
+
+/-- The IPA round extractor: from the folded vector at two distinct challenges, recover the halves —
+`hi = (f₁ − f₂)/(u₁ − u₂)` and `lo = f₁ − u₁ • hi`. -/
+def roundExtract {m : ℕ} (f₁ f₂ : Fin m → F) (u₁ u₂ : F) : (Fin m → F) × (Fin m → F) :=
+  (f₁ - u₁ • ((u₁ - u₂)⁻¹ • (f₁ - f₂)), (u₁ - u₂)⁻¹ • (f₁ - f₂))
+
+/-- **2-special soundness of one IPA round.** The folded vectors at two *distinct* challenges `u₁ ≠ u₂`
+(produced from the same halves `lo, hi`) determine the halves: `roundExtract` recovers exactly `(lo, hi)`.
+A prover answering two challenges consistently is thus committed to a unique pair that folds back to the
+round witness — the algebraic heart of the IPA's special soundness. -/
+theorem roundExtract_correct {m : ℕ} (lo hi : Fin m → F) (u₁ u₂ : F) (h : u₁ ≠ u₂) :
+    roundExtract (foldVec lo hi u₁) (foldVec lo hi u₂) u₁ u₂ = (lo, hi) := by
+  have hsub : u₁ - u₂ ≠ 0 := sub_ne_zero.mpr h
+  have hi_eq : (u₁ - u₂)⁻¹ • (foldVec lo hi u₁ - foldVec lo hi u₂) = hi := by
+    have hd : foldVec lo hi u₁ - foldVec lo hi u₂ = (u₁ - u₂) • hi := by
+      simp only [foldVec, sub_smul]; abel
+    rw [hd, smul_smul, inv_mul_cancel₀ hsub, one_smul]
+  simp only [roundExtract, Prod.mk.injEq]
+  refine ⟨?_, hi_eq⟩
+  rw [hi_eq]
+  simp only [foldVec]
+  abel
+
 end Zcash.Snark
