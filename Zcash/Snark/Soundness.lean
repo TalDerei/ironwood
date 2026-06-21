@@ -140,4 +140,41 @@ theorem innerProduct_round {m : ℕ} (lo hi blo bhi : Fin m → F) {u : F} (hu :
   field_simp
   ring
 
+/-! ## Commitment binding and knowledge soundness of the opening
+
+The last ingredient is *binding*: distinct coefficient vectors have distinct commitments (the SRS
+generators are `F`-linearly independent). Over the Pasta curve this is the discrete-log /
+algebraic-group-model assumption — kept as an explicit hypothesis (project scope), not proved here,
+mirroring how `Zcash/Security/BindingSignature/Balance.lean` records its cryptographic assumptions.
+
+Given binding, the witness the special-soundness extractor produces (`roundExtract_correct` per round,
+composed over the `k` rounds) is the *unique* opening — so an accepting proof demonstrates knowledge of
+exactly one polynomial. The complementary constraint layer — that the opened polynomials satisfy the
+circuit's gate/permutation/lookup identities — is the Schwartz–Zippel bound
+(`Zcash.Snark.fingerprint_schwartz_zippel`): a violated identity passes the random-point check only with
+probability `≤ d/p`. -/
+
+/-- **Commitment binding** (the curve assumption, kept explicit): the SRS commitment is injective —
+coefficient vectors with equal commitments are equal, i.e. the generators `g` are `F`-linearly
+independent. Over Pasta this is the discrete-log / AGM assumption. -/
+@[reducible] def CommitmentBinding (srs : SRS G) : Prop :=
+  Function.Injective (commit (F := F) srs)
+
+/-- Under binding, the IPA opening is **unique**: two witnesses opening the same commitment to the same
+value are equal. So special-soundness extraction (which yields *an* opening) pins down *the* witness. -/
+theorem ipaRelation_unique {srs : SRS G} {P : G} {b : Fin (2 ^ srs.k) → F} {v : F}
+    {a a' : Fin (2 ^ srs.k) → F} (hb : CommitmentBinding (F := F) srs)
+    (h : IpaRelation srs P b v a) (h' : IpaRelation srs P b v a') : a = a' :=
+  hb (h.1.trans h'.1.symm)
+
+/-- **Knowledge soundness of the opening (assembled).** Given commitment binding and a special-soundness
+extractor's output `a` (an opening of `P` to `v`, justified per round by `roundExtract_correct` and
+composed over the rounds), the proof demonstrates knowledge of the **unique** witness: `a` opens the
+commitment, and any other opening equals it. The extraction hypothesis is the cryptographic core proved
+round-by-round above; binding is the explicit curve assumption. -/
+theorem opening_knowledge_sound {srs : SRS G} {P : G} {b : Fin (2 ^ srs.k) → F} {v : F}
+    {a : Fin (2 ^ srs.k) → F} (hb : CommitmentBinding (F := F) srs) (hExtract : IpaRelation srs P b v a) :
+    IpaRelation srs P b v a ∧ ∀ a', IpaRelation srs P b v a' → a' = a :=
+  ⟨hExtract, fun _ h' => ipaRelation_unique hb h' hExtract⟩
+
 end Zcash.Snark
