@@ -99,4 +99,45 @@ theorem roundExtract_correct {m : ℕ} (lo hi : Fin m → F) (u₁ u₂ : F) (h 
   simp only [foldVec]
   abel
 
+/-! ## Inner-product bilinearity and the round's inner-product telescoping
+
+The scalar side of the IPA: the inner product is bilinear, and one round *telescopes* it — with the
+witness folded by `u⁻¹` and the evaluation vector by `u`, the folded inner product is the original
+`⟨lo,blo⟩ + ⟨hi,bhi⟩` plus the two cross terms the verifier accounts for via `L`/`R`. This is the round's
+*completeness*, complementing the round *extractor* (`roundExtract_correct`). -/
+
+/-- The inner product is additive in its left argument. -/
+theorem innerProduct_add_left {n : ℕ} (a a' b : Fin n → F) :
+    innerProduct (a + a') b = innerProduct a b + innerProduct a' b := by
+  simp only [innerProduct, Pi.add_apply, add_mul, Finset.sum_add_distrib]
+
+/-- The inner product is additive in its right argument. -/
+theorem innerProduct_add_right {n : ℕ} (a b b' : Fin n → F) :
+    innerProduct a (b + b') = innerProduct a b + innerProduct a b' := by
+  simp only [innerProduct, Pi.add_apply, mul_add, Finset.sum_add_distrib]
+
+/-- The inner product is homogeneous in its left argument. -/
+theorem innerProduct_smul_left {n : ℕ} (c : F) (a b : Fin n → F) :
+    innerProduct (c • a) b = c * innerProduct a b := by
+  simp only [innerProduct, Finset.mul_sum, Pi.smul_apply, smul_eq_mul]
+  exact Finset.sum_congr rfl fun i _ => by ring
+
+/-- The inner product is homogeneous in its right argument. -/
+theorem innerProduct_smul_right {n : ℕ} (c : F) (a b : Fin n → F) :
+    innerProduct a (c • b) = c * innerProduct a b := by
+  simp only [innerProduct, Finset.mul_sum, Pi.smul_apply, smul_eq_mul]
+  exact Finset.sum_congr rfl fun i _ => by ring
+
+/-- One IPA round telescopes the inner product: with the witness folded by `u⁻¹` and the evaluation
+vector by `u` (`u ≠ 0`), `⟨a', b'⟩` equals the original `⟨lo,blo⟩ + ⟨hi,bhi⟩` plus the two cross terms
+the verifier tracks through `L`/`R`. -/
+theorem innerProduct_round {m : ℕ} (lo hi blo bhi : Fin m → F) {u : F} (hu : u ≠ 0) :
+    innerProduct (foldVec lo hi u⁻¹) (foldVec blo bhi u)
+      = innerProduct lo blo + innerProduct hi bhi
+        + u⁻¹ * innerProduct hi blo + u * innerProduct lo bhi := by
+  simp only [foldVec, innerProduct_add_left, innerProduct_add_right,
+    innerProduct_smul_left, innerProduct_smul_right]
+  field_simp
+  ring
+
 end Zcash.Snark
