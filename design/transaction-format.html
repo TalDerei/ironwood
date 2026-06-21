@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Preliminaries - The Ironwood Book</title>
+        <title>Transaction Format - The Ironwood Book</title>
 
 
         <!-- Custom HTML head -->
@@ -177,20 +177,68 @@
                 <div id="content" class="content">
                     <main>
                         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
-<h1 id="preliminaries"><a class="header" href="#preliminaries">Preliminaries</a></h1>
+<h1 id="transaction-format"><a class="header" href="#transaction-format">Transaction Format</a></h1>
+<p>Version 6 follows the version 5 transaction format, with an Ironwood bundle
+added after the Orchard bundle.</p>
+<p>At the transaction ID layer, Ironwood is another child in the transaction hash
+tree:</p>
+<pre class="mermaid">flowchart TD
+    TxId[&quot;txid&lt;br/&gt;ZcashTxHash_ || consensusBranchId&quot;]
+
+    Header[&quot;header digest&lt;br/&gt;version, branch ID, lock time, expiry height&quot;]
+    Transparent[&quot;transparent digest&quot;]
+    Sapling[&quot;Sapling digest&quot;]
+    Orchard[&quot;Orchard bundle digest&quot;]
+    Ironwood[&quot;Ironwood bundle digest&quot;]
+
+    TxId --&gt; Header
+    TxId --&gt; Transparent
+    TxId --&gt; Sapling
+    TxId --&gt; Orchard
+    TxId --&gt; Ironwood
+</pre>
+<p>The Orchard and Ironwood bundle digests have the same structure. The difference
+is that Ironwood uses its own personalization strings at each bundle-hash node:</p>
+<pre class="mermaid">flowchart TD
+    OrchardBundle[&quot;Orchard bundle digest&lt;br/&gt;ZTxIdOrchardHash&quot;]
+    IronwoodBundle[&quot;Ironwood bundle digest&lt;br/&gt;ZTxIdIronwd_Hash&quot;]
+
+    subgraph Shape[&quot;Same Orchard-style bundle hash shape&quot;]
+        Compact[&quot;actions compact hash&lt;br/&gt;nf, cmx, epk, compact ciphertext&quot;]
+        Memos[&quot;actions memo hash&lt;br/&gt;memo ciphertext&quot;]
+        NonCompact[&quot;actions non-compact hash&lt;br/&gt;cv, rk, remaining ciphertext&quot;]
+        Flags[&quot;bundle flags&quot;]
+        Value[&quot;value balance&quot;]
+        Anchor[&quot;bundle anchor&quot;]
+    end
+
+    OrchardBundle --&gt; Compact
+    OrchardBundle --&gt; Memos
+    OrchardBundle --&gt; NonCompact
+    OrchardBundle --&gt; Flags
+    OrchardBundle --&gt; Value
+    OrchardBundle --&gt; Anchor
+
+    IronwoodBundle -. same fields .-&gt; Compact
+    IronwoodBundle -. same fields .-&gt; Memos
+    IronwoodBundle -. same fields .-&gt; NonCompact
+    IronwoodBundle -. same fields .-&gt; Flags
+    IronwoodBundle -. same fields .-&gt; Value
+    IronwoodBundle -. same fields .-&gt; Anchor
+</pre>
+<p>The same rule applies to authorization hashing: Ironwood follows the Orchard
+bundle authorization structure, but uses Ironwood-specific personalization
+strings.</p>
 <script class="todo-data" type="application/json">["concepts/preliminaries.html", "user.html"]</script>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../concepts.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../design.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../concepts/quantum-recoverability.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -198,13 +246,10 @@
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../concepts.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../design.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../concepts/quantum-recoverability.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
             </nav>
 
         </div>
