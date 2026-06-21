@@ -25,9 +25,12 @@ This module provides the match's logical content:
 * `gScalars_card` — the structural cross-check: the assembled MSM carries `2 ^ k` SRS-generator
   coefficients, matching the captured Orchard fingerprint's `2 ^ 11 = 2048`.
 
-**What remains external.** Running the *numeric* match on the real Orchard capture needs the captured
-fixture (the `2048` g-scalars, `100` commitment terms, and `22` challenges from `Step 2.1`) serialized
-and loaded, the Orchard verifying key supplied as a `VerifyingKey`, and the `construct_intermediate_sets`
+**What remains external.** The Rust capture lives in the personal forks: the capture APIs
+(`FingerprintStrategy`, `ChallengeRecorder`, `MSM::fingerprint_terms`) in
+[TalDerei/halo2#1](https://github.com/TalDerei/halo2/pull/1), and the capture test in
+[TalDerei/orchard#1](https://github.com/TalDerei/orchard/pull/1). Running the *numeric* match on the real
+capture needs that captured fixture (the `2048` g-scalars, `100` commitment terms, and `22` challenges)
+serialized and loaded, the verifying key supplied as a `VerifyingKey`, and the `construct_intermediate_sets`
 grouping (the one piece `assembleFinalMsm` takes as input). With those, the match is the decidable
 coefficient comparison `MsmMatch` above. The group bases stay abstract in Lean (the Pasta curve law is
 hand-waved), so the numeric comparison is of the scalar coefficients, with the bases shared by construction.

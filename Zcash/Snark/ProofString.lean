@@ -9,7 +9,7 @@ them, squeezes Fiat-Shamir challenges, assembles one MSM, and checks `MSM = iden
 on a proof element's value. This module captures that proof string as plain data, cross-referenced
 against the reads in `plonk/verifier.rs` (and the sub-argument verifiers).
 
-A single Orchard proof covers a whole bundle: `Proof::verify` (`../orchard/src/circuit.rs`) passes
+A single Orchard proof covers a whole bundle: `Proof::verify` ([TalDerei/orchard](https://github.com/TalDerei/orchard) `src/circuit.rs`) passes
 all `N` actions' instances to `plonk::verify_proof`, which reads the per-action elements
 `num_proofs = N` times against one shared set of challenges and a single multiopen / IPA opening. So
 the proof string splits into **per-sub-proof** vectors (indexed by `Fin numProofs`) and **shared**
