@@ -62,4 +62,52 @@ theorem commitGen_round {m : ℕ} (gLo gHi : Fin m → G) (aLo aHi : Fin m → F
     smul_add, smul_smul, inv_mul_cancel₀ hu, one_smul]
   abel
 
+/-! ## Binding as a discrete-log-relation hardness assumption
+
+Rather than *assuming* the commitment is binding outright, we model it as a **reduction** to a hardness
+assumption — the same shape as the binding-signature argument's `relation_of_imbalance`: prove the
+*counterfactual* that breaking binding produces a nontrivial discrete-log relation among the SRS
+generators, and claim **DLR hardness** (no such relation exists on the Pasta generators) in the docs to
+close it. `commitmentBinding_iff_no_relation` makes precise that `CommitmentBinding` *is* exactly DLR
+hardness, so the assumption is the standard, named one — with the reduction itself proven. -/
+
+/-- A discrete-log relation among the SRS generators: a coefficient vector the generators send to `0`.
+It is *nontrivial* when `r ≠ 0`. **DLR hardness** is the assumption that no nontrivial relation exists. -/
+@[reducible] def DLRelation (srs : SRS G) (r : Fin (2 ^ srs.k) → F) : Prop :=
+  commitGen srs.g r = 0
+
+/-- Additivity over subtraction in the witness. -/
+theorem commitGen_sub {n : ℕ} (g : Fin n → G) (a a' : Fin n → F) :
+    commitGen g (a - a') = commitGen g a - commitGen g a' := by
+  simp only [commitGen, Pi.sub_apply, sub_smul, Finset.sum_sub_distrib]
+
+/-- **The binding reduction (counterfactual).** A binding collision — two distinct openings of one
+commitment — yields a *nontrivial* discrete-log relation `a − a'` among the SRS generators. So DLR
+hardness closes binding, exactly as `relation_of_imbalance` closes the binding-signature argument: the
+collision is reduced to a relation the hardness assumption forbids. -/
+theorem relation_of_collision (srs : SRS G) {a a' : Fin (2 ^ srs.k) → F}
+    (hcol : commit srs a = commit srs a') (hne : a ≠ a') :
+    a - a' ≠ 0 ∧ DLRelation srs (a - a') := by
+  refine ⟨sub_ne_zero.mpr hne, ?_⟩
+  show commitGen srs.g (a - a') = 0
+  rw [commitGen_sub, ← commit_eq_commitGen, ← commit_eq_commitGen, hcol, sub_self]
+
+/-- **Binding is exactly DLR hardness.** The commitment is binding iff every discrete-log relation among
+the generators is trivial — so assuming DLR hardness *is* assuming `CommitmentBinding`, and the binding
+hypothesis used by `ipaRelation_unique` / `opening_knowledge_sound` is precisely the standard,
+named hardness assumption (with `relation_of_collision` the proven reduction). -/
+theorem commitmentBinding_iff_no_relation (srs : SRS G) :
+    CommitmentBinding (F := F) srs ↔ ∀ r : Fin (2 ^ srs.k) → F, DLRelation srs r → r = 0 := by
+  constructor
+  · intro hb r hr
+    have hr' : commitGen srs.g r = 0 := hr
+    apply hb
+    rw [commit_eq_commitGen, commit_eq_commitGen, hr']
+    simp [commitGen]
+  · intro hnr a a' hcol
+    have hr : DLRelation srs (a - a') := by
+      show commitGen srs.g (a - a') = 0
+      rw [commitGen_sub, ← commit_eq_commitGen, ← commit_eq_commitGen, hcol, sub_self]
+    exact sub_eq_zero.mp (hnr _ hr)
+
 end Zcash.Snark
