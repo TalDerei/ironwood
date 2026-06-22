@@ -1,5 +1,6 @@
 import Mathlib
 import Zcash.Snark.KnowledgeSoundness
+import Zcash.Snark.Assemble
 
 /-!
 # Soundness composition — CONDITIONAL, not yet completed (§2, in progress)
@@ -56,5 +57,34 @@ theorem orchard_verifier_sound_conditional (srs : SRS G) (hbind : CommitmentBind
     S := by
   obtain ⟨t, a, hcons, hopen⟩ := hextract haccepts
   exact hencodes a (knowledge_sound srs hbind hcons hopen hcon).2.1
+
+/-- The deployed verifier's **accept condition**, as a concrete predicate: the assembled fingerprint MSM
+`assemble vk ps ch` (the §1 object) evaluates to the group identity against the SRS. This is what
+`accepts` *should* be — the formal object §1 and §2 must share. (`hk` aligns the circuit shape's `k` with
+the SRS's `k`.) -/
+def DeployedAccepts [DecidableEq G] [Inhabited G] {shape : Shape} (srs : SRS G)
+    (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) : Prop :=
+  (hk ▸ assemble vk ps ch : Msm srs.k Fp G).eval srs = 0
+
+/-- **Conditional soundness, now *about the fingerprint* (checklist C1, interim).** This is
+`orchard_verifier_sound_conditional` with `accepts` instantiated to the real deployed accept condition
+`DeployedAccepts` — so §1's `assemble` / `Msm.eval` and the §2 soundness theorem finally share a formal
+object (previously `accepts` was a free `Prop`).
+
+⚠️ Still conditional: the bridge `hextract : DeployedAccepts … → ∃ t a, Consistent t a ∧ IpaRelation …`
+is **assumed**. Proving it — `(assemble vk ps ch).eval srs = 0 → ∃ t a, Consistent t a ∧ IpaRelation …`
+— is the hard remaining seam (the full C1), the actual IPA/multiopen soundness connecting the assembled
+MSM to the opening. -/
+theorem orchard_verifier_sound_deployed [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) (hbind : CommitmentBinding (F := Fp) srs)
+    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hextract : ExtractableFromAcceptance srs P b v (DeployedAccepts srs hk vk ps ch))
+    {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
+    S :=
+  orchard_verifier_sound_conditional srs hbind haccepts hextract hcon hencodes
 
 end Zcash.Snark
