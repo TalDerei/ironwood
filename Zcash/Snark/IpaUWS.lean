@@ -68,4 +68,77 @@ theorem deployed_leaf_peel {n : ℕ} {g : Fin n → G} {b : Fin n → F} {U W : 
   obtain ⟨ha, hα, _⟩ := hbind.separate e
   exact ⟨congrArg (commitGen g) ha, mul_left_cancel₀ hz hα⟩
 
+/-! ## The deployed recursion peels to the clean recursive IPA -/
+
+/-- A **deployed** 3-ary IPA transcript tree: like `IpaTreeV` but each node also carries the blinding
+cross-terms `Lw`, `Rw` (the `W`-side of the prover's `L`/`R`) and the leaf carries the synthetic blinding
+scalar `f`. The `U`/`W` generators and the binding challenge `z` are global (carried in `DeployedIpaAcceptV`),
+matching halo2 (`params.u`, `params.w`, the challenge `z` are fixed across the rounds). -/
+inductive DeployedIpaTreeV (F G : Type*) : ℕ → Type _ where
+  | leaf : F → F → DeployedIpaTreeV F G 0
+  | node {d : ℕ} : G → G → F → F → F → F → F → F → F →
+      DeployedIpaTreeV F G d → DeployedIpaTreeV F G d → DeployedIpaTreeV F G d → DeployedIpaTreeV F G (d + 1)
+
+/-- Forget the deployed blinding decorations (`Lw`, `Rw`, `f`), recovering the clean `IpaTreeV` that
+`ipa_soundV` consumes. -/
+def projTree : {d : ℕ} → DeployedIpaTreeV F G d → IpaTreeV F G d
+  | _, .leaf c _ => .leaf c
+  | _, .node L R Lv Rv _ _ u₁ u₂ u₃ t₁ t₂ t₃ =>
+      .node L R Lv Rv u₁ u₂ u₃ (projTree t₁) (projTree t₂) (projTree t₃)
+
+/-- **Acceptance for the deployed IPA, carrying the `U`/`W`/`S` apparatus.** The recursion folds the
+generators `g`, the eval vector `b`, the commitment `P` (by `L`,`R`), the value `v` (by `Lv`,`Rv`) and the
+blinding `blind` (by `Lw`,`Rw`) — the `g`/`b`/`P`/`v` folds are exactly `IpaAcceptV`'s; `U`, `W`, `z` are
+fixed. The **leaf** is halo2's single combined verifier equation
+`P + [z·v]U + [blind]W = [c]g₀ + [z·c·b₀]U + [f]W`, with `P` given in its `g`-representation `⟨aP, g⟩` (the
+AGM: the folded commitment is a known combination of the SRS generators). -/
+def DeployedIpaAcceptV : {d : ℕ} → (Fin (2 ^ d) → G) → (Fin (2 ^ d) → F) → G → G → F → G → F → F →
+    DeployedIpaTreeV F G d → Prop
+  | 0, g, b, U, W, z, P, v, blind, .leaf c f =>
+      ∃ aP : Fin (2 ^ 0) → F, P = commitGen g aP ∧
+        commitGen g aP + (z * v) • U + blind • W
+          = commitGen g (fun _ => c) + (z * commitGen b (fun _ => c)) • U + f • W
+  | _ + 1, g, b, U, W, z, P, v, blind, .node L R Lv Rv Lw Rw u₁ u₂ u₃ t₁ t₂ t₃ =>
+      u₁ ≠ u₂ ∧ u₁ ≠ u₃ ∧ u₂ ≠ u₃ ∧ u₁ ≠ 0 ∧ u₂ ≠ 0 ∧ u₃ ≠ 0 ∧
+        DeployedIpaAcceptV (foldGens g u₁) (foldGens b u₁) U W z
+          (P + u₁⁻¹ • L + u₁ • R) (v + u₁⁻¹ • Lv + u₁ • Rv) (blind + u₁⁻¹ • Lw + u₁ • Rw) t₁ ∧
+        DeployedIpaAcceptV (foldGens g u₂) (foldGens b u₂) U W z
+          (P + u₂⁻¹ • L + u₂ • R) (v + u₂⁻¹ • Lv + u₂ • Rv) (blind + u₂⁻¹ • Lw + u₂ • Rw) t₂ ∧
+        DeployedIpaAcceptV (foldGens g u₃) (foldGens b u₃) U W z
+          (P + u₃⁻¹ • L + u₃ • R) (v + u₃⁻¹ • Lv + u₃ • Rv) (blind + u₃⁻¹ • Lw + u₃ • Rw) t₃
+
+/-- **The deployed recursion peels to the clean `IpaAcceptV`.** Under the augmented binding (at every
+folded-generator family — `U`,`W` are independent of all generators the recursion produces) and `z ≠ 0`, the
+deployed combined verifier accepts only if the clean recursive verifier does: nodes carry over verbatim (the
+`g`/`b`/`P`/`v` folds coincide; the blinding fold is discarded), and each leaf's combined equation peels via
+`deployed_leaf_peel` into the clean leaf checks `P = [c]g₀ ∧ v = [c]b₀`. This is the `U`/`W`/`S` structure
+closing onto `ipa_soundV`. -/
+theorem deployed_to_acceptV {U W : G} {z : F}
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := F) g' U W) (hz : z ≠ 0) :
+    {d : ℕ} → (g : Fin (2 ^ d) → G) → (b : Fin (2 ^ d) → F) → (P : G) → (v blind : F) →
+      (t : DeployedIpaTreeV F G d) → DeployedIpaAcceptV g b U W z P v blind t →
+      IpaAcceptV g b P v (projTree t)
+  | 0, g, b, P, v, blind, .leaf c f, h => by
+      obtain ⟨aP, hP, he⟩ := h
+      obtain ⟨h1, h2⟩ := deployed_leaf_peel (hbind g) hz he
+      exact ⟨hP.trans h1, h2⟩
+  | _ + 1, g, b, P, v, blind, .node L R Lv Rv Lw Rw u₁ u₂ u₃ t₁ t₂ t₃, h => by
+      obtain ⟨h12, h13, h23, hu₁, hu₂, hu₃, ha₁, ha₂, ha₃⟩ := h
+      exact ⟨h12, h13, h23, hu₁, hu₂, hu₃,
+        deployed_to_acceptV hbind hz _ _ _ _ _ t₁ ha₁,
+        deployed_to_acceptV hbind hz _ _ _ _ _ t₂ ha₂,
+        deployed_to_acceptV hbind hz _ _ _ _ _ t₃ ha₃⟩
+
+/-- **Recursive opening soundness over halo2's concrete `U`/`W`/`S` structure.** An accepting deployed IPA
+transcript tree yields a witness opening the commitment to the claimed value: `∃ a, ⟨a,g⟩ = P ∧ ⟨a,b⟩ = v`.
+Composes `deployed_to_acceptV` (the `U`/`W`/`S` peeling) with the proven clean-IPA soundness `ipa_soundV`. The
+only inputs are the legitimate floor: the augmented binding (DLR/AGM, `hbind`) and the transcript tree itself
+(the special-soundness rewinding). -/
+theorem deployed_ipa_soundV {U W : G} {z : F}
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := F) g' U W) (hz : z ≠ 0)
+    {d : ℕ} (g : Fin (2 ^ d) → G) (b : Fin (2 ^ d) → F) (P : G) (v blind : F)
+    (t : DeployedIpaTreeV F G d) (h : DeployedIpaAcceptV g b U W z P v blind t) :
+    ∃ a : Fin (2 ^ d) → F, commitGen g a = P ∧ commitGen b a = v :=
+  ipa_soundV g b P v (projTree t) (deployed_to_acceptV hbind hz g b P v blind t h)
+
 end Zcash.Snark
