@@ -28,6 +28,30 @@ open Polynomial
 
 variable {G : Type*} [AddCommGroup G] [Module Fp G]
 
+/-- **The deployed accept IS the IPA verification equation, with `G'₀ = foldAll` explicit (closes O1's
+structural correspondence).** `eval_assembleFinalMsm` gives the assembled MSM in closed form; rewriting its
+`computeS` generator term via `deployed_gterm_foldAll` exhibits it as `[-c]·foldAll` — the folded generator
+`G'₀`. So the deployed accept (`assemble.eval = 0`) is exactly halo2's IPA verifier equation
+`P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀ = 0` for the multiopen commitment/value, with the
+generator fold *proven* (not assumed). The `DeployedIpaRewind` bridge's only residual is then the pure
+rewinding of this equation into the 3-ary transcript tree. -/
+theorem deployed_verification_eq {shape : Shape} (g : Fin (2 ^ shape.k) → G) (w u : G)
+    (ps : ProofString shape Fp G) (ch : Challenges shape.k Fp)
+    (grouped : MultiopenGrouped shape.k Fp G) :
+    (assembleFinalMsm ps ch grouped).eval ⟨shape.k, g, w, u⟩
+      = (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU) grouped
+            (Msm.zero shape.k Fp G)).1.eval ⟨shape.k, g, w, u⟩
+        + (∑ i, ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+            grouped (Msm.zero shape.k Fp G)).2].getD i.val 0) • g i)
+        + ch.xi • ps.ipaS
+        + (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+            (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum
+        + (-ps.ipaC * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z) • u
+        + (-ps.ipaF) • w
+        + (-ps.ipaC) • foldAll (List.ofFn ch.ipaRound)
+            (fun j => g (Fin.cast (congrArg (2 ^ ·) List.length_ofFn) j)) 0 := by
+  rw [eval_assembleFinalMsm, deployed_gterm_foldAll]
+
 /-- **`IpaRelation` derived from an accepting *deployed* IPA tree.** The witness `deployed_ipa_soundV`
 extracts (after peeling `U`/`W`/`S`) opens `P` (`commit srs a = commitGen srs.g a`) and gives the inner
 product (`innerProduct a b = commitGen b a`). So the full opening relation is derived over halo2's concrete
@@ -43,11 +67,13 @@ theorem ipaRelation_of_deployedAcceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp
   · have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
     rw [hib]; exact hv
 
-/-- **The deployed verifier's IPA bridge — now the *pure* special-soundness rewinding.** Acceptance yields a
+/-- **The deployed verifier's IPA bridge — the *pure* special-soundness rewinding.** Acceptance yields a
 *deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying `U`/`W`/`S`) for the proof's eval vector `b`,
-commitment `P` and value `v`. Unlike `FiatShamirTree`, this no longer absorbs the `U`/`W`/`S` separation or
-the generator-fold correspondence (both now *proven* — `deployed_ipa_soundV`, `foldAll`/`computeB`): its sole
-content is the rewinding (one accepting transcript → a distinct-challenge tree), the irreducible ROM floor. -/
+commitment `P` and value `v`. Unlike `FiatShamirTree`, this no longer absorbs any provable content: the
+`U`/`W`/`S` separation is proven (`deployed_ipa_soundV`), and the structural correspondence — that
+`assemble.eval = 0` *is* halo2's IPA verifier equation with `G'₀ = foldAll` and `b = compute_b` — is proven
+(`deployed_verification_eq`, citing `deployed_gterm_foldAll`/`computeB_eq`). Its sole residual content is the
+rewinding of that (proven) equation into a distinct-challenge tree — the irreducible ROM/forking floor. -/
 def DeployedIpaRewind (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (z : Fp) (P : G) (v : Fp)
     (accepts : Prop) : Prop :=
   accepts → ∃ (blind : Fp) (t : DeployedIpaTreeV Fp G srs.k),

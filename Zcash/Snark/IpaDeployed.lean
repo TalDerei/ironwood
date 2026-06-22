@@ -163,4 +163,18 @@ theorem computeB_eq_sum (x : F) (u : List F) :
     computeB x u = ∑ i, (sFun u 1) i * x ^ (i.val) := by
   rw [computeB_eq, commitGen_eq_innerProduct]
 
+/-- **The deployed `computeS` `g`-term from a `Fin m`-indexed challenge family is `[-c]·G'₀`** — the
+`List.ofFn`-length↔`m` transport of `computeS_gterm_foldAll`. The assembly indexes its round challenges as
+`ch.ipaRound : Fin shape.k → Fp` and feeds `List.ofFn ch.ipaRound` to `computeS`; this reconciles that list's
+length with `m = shape.k` (`List.length_ofFn`) via `Fin.cast`, so the `computeS` generator term of
+`eval_assembleFinalMsm` is exactly `[-c]` times the folded generator `foldAll = G'₀`. -/
+theorem deployed_gterm_foldAll {m : ℕ} (f : Fin m → F) (c : F) (g : Fin (2 ^ m) → G) :
+    (∑ i : Fin (2 ^ m), ((computeS (List.ofFn f) (-c)).getD i.val 0) • g i)
+      = (-c) • foldAll (List.ofFn f) (fun j => g (Fin.cast (congrArg (2 ^ ·) List.length_ofFn) j)) 0 := by
+  rw [← computeS_gterm_foldAll (List.ofFn f) c
+    (fun j => g (Fin.cast (congrArg (2 ^ ·) List.length_ofFn) j))]
+  apply Fintype.sum_equiv (finCongr (congrArg (2 ^ ·) (List.length_ofFn (f := f)).symm))
+  intro i
+  simp only [finCongr_apply, Fin.coe_cast, Fin.cast_trans, Fin.cast_eq_self]
+
 end Zcash.Snark
