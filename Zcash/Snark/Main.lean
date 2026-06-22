@@ -147,7 +147,8 @@ equation is never inspected). What *is* proven on the path: rewinding's `Accepti
 witness (`accepting_extract`), so the conclusion is about the *extracted* witness. **Genuinely closing C1**
 means deriving `IpaRelation` and `circuitSat` from `DeployedAccepts` (via `eval_ipaFold` and
 `circuitSatViaGates_of_check`) and *removing* those conjuncts from the bridge — open work; until then this
-is the honest conditional form. -/
+is the honest conditional form. **Superseded** by `orchard_verifier_sound_deployed_C1` (opening derived via
+`ipa_soundV`) and `orchard_verifier_sound_deployed_C3` (constraint derived); prefer those. -/
 theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
@@ -163,9 +164,11 @@ theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {sha
 
 `Zcash.Snark.ipa_soundV` derives the *full* opening relation — `commit g a = P` **and** `⟨a,b⟩ = v` — from
 an accepting IPA transcript tree (`IpaAcceptV`), binding-free, by 3-special soundness. So the bridge no
-longer needs to *assume* `IpaRelation`: it only needs to supply the accepting **tree** (the genuine
-Fiat–Shamir/special-soundness rewinding — `accept → ∃ tree`), which is the irreducible standard-model
-assumption and nothing more. This removes the `IpaRelation` conjunct from the bridge (review item C1). -/
+longer *assumes* `IpaRelation` (review item C1). Honest caveat: the tree-bridge (`FiatShamirTree`) is **not**
+purely the rewinding — it also absorbs (i) the MSM↔tree structural correspondence (that `assemble.eval = 0`
+unfolds into the recursive checks for the proof's actual `P,b,v,L,R`), which is *provable* via
+`eval_assembleFinalMsm` but not yet wired (checklist B), and (ii) the pinning of free `P,b,v` to the proof.
+The cryptographic opening is genuinely derived; the residual bundle is structural/mechanical. -/
 
 /-- `IpaAcceptV` over the SRS generators derives the existing `IpaRelation`: the witness `ipa_soundV`
 extracts opens `P` (`commit srs a = commitGen srs.g a`) and gives the inner product
@@ -178,10 +181,13 @@ theorem ipaRelation_of_acceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G
   have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
   rw [hib]; exact hv
 
-/-- **The minimal Fiat–Shamir bridge: just the accepting transcript tree.** Unlike
-`ExtractableFromDeployedAccept`, this assumes *only* that acceptance yields an `IpaAcceptV` tree — the
-special-soundness rewinding — and nothing about `IpaRelation` (which `ipa_soundV` derives). This is the
-irreducible standard-model assumption, isolated. -/
+/-- **The transcript-tree bridge.** Acceptance yields an `IpaAcceptV` tree. Narrower than
+`ExtractableFromDeployedAccept` (no bundled `IpaRelation`/`circuitSat` — `ipa_soundV` derives them), but
+**not** purely the rewinding: it also absorbs (i) the MSM↔tree structural correspondence — that
+`assemble.eval = 0` actually unfolds into these recursive checks for the proof's `P,b,v,L,R` (provable via
+`eval_assembleFinalMsm`; checklist B, not yet wired) — and (ii) the pinning of free `P,b,v` to the proof.
+The genuinely irreducible core is the rewinding (`accept → ∃` distinct-challenge tree); the rest is
+mechanical wiring still to discharge. -/
 def FiatShamirTree (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G) (v : Fp) (accepts : Prop) : Prop :=
   accepts → ∃ t : IpaTreeV Fp G srs.k, IpaAcceptV srs.g b P v t
 
@@ -191,11 +197,11 @@ the *only* IPA assumption), and the circuit-satisfaction of the opening (`hcirc`
 checklist C3, dischargeable by `circuitSatViaGates_of_check`), conclude `S`.
 
 The IPA opening (`IpaRelation`) is **derived** here via `ipaRelation_of_acceptV`/`ipa_soundV` — it is no
-longer assumed (contrast `orchard_verifier_sound_deployed_final`, whose bridge bundled it). What the bridge
-supplies is exactly the special-soundness rewinding (`accept → ∃ tree`); everything from the tree to
-`IpaRelation` is proven, binding-free. The remaining named assumptions are the standard ones: the rewinding
-(`hFS`), the circuit/constraint side (`hcirc`, C3), DLR hardness (for *uniqueness*, unused on this path),
-and VK-correctness (`hencodes`). -/
+longer assumed (contrast `orchard_verifier_sound_deployed_final`, whose bridge bundled it). Honest scope:
+`hFS` still absorbs the MSM↔tree correspondence + `P,b,v` pinning (see `FiatShamirTree`; checklist B), and
+`hcirc` is the assumed constraint side — `orchard_verifier_sound_deployed_C3` derives it from the gate check.
+Named assumptions: the bridge (`hFS`), the constraint side (`hcirc`, C3), DLR hardness (for *uniqueness*,
+unused on this path), and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_deployed_C1 [DecidableEq G] [Inhabited G] {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
