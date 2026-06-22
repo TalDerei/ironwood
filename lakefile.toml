@@ -26,4 +26,4 @@ name = "Zcash"
 # `lake build` (the default targets -- what CI runs) compiles it, so the one empirical check is exercised.
 [[lean_lib]]
 name = "FixtureCheck"
-globs = ["Zcash.Snark.Fixture"]
+globs = ["Zcash.Snark.Fixture", "Zcash.Snark.FixtureFiatShamir"]
