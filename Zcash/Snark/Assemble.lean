@@ -204,6 +204,13 @@ The conflicting-eval guard (halo2's `None`) is omitted: the audit established it
 well-formed verifying key (a defensive invariant on the verifier's own bookkeeping, not prover data).
 Commitments are grouped by value equality, which coincides with halo2's pointer identity whenever
 distinct commitments have distinct values — always the case for a real proof. -/
+-- TODO(F1, identity-keying): group commitments by per-slot *identity*, not curve value. Halo2's
+-- `construct_intermediate_sets` keys by `std::ptr::eq`/`ptr::hash`; an adversarial prover can submit two
+-- distinct commitment slots with equal point values, which Rust keeps separate but this `DecidableEq G`
+-- grouping would merge. Fix: thread a unique slot id through `VerifierQuery` / `assembleQueries` and group
+-- by it. Full closure also needs the Rust dumper to emit per-slot ids and the fixture regenerated (the
+-- companion forks) so the CI-built `fingerprint_matches` still holds. Tracked as F1 in
+-- notes/fv-review-checklist.md.
 def constructIntermediateSets {k : ℕ} {F G : Type*} [DecidableEq F] [DecidableEq G]
     (queries : List (VerifierQuery k F G)) : MultiopenGrouped k F G :=
   -- distinct points, in first-appearance order; `pointIdx p` is `p`'s index in that order
