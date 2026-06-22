@@ -25,22 +25,22 @@ variable {F : Type*} [Field F]
 private theorem two_pow_succ (k : ℕ) : 2 ^ (k + 1) = 2 ^ k + 2 ^ k := by
   rw [pow_succ, Nat.mul_two]
 
-/-- The lower half of a length-`2^{k+1}` vector. -/
-def loHalf {k : ℕ} (a : Fin (2 ^ (k + 1)) → F) : Fin (2 ^ k) → F :=
+/-- The lower half of a length-`2^{k+1}` vector. Generic over the codomain `α`, so it halves both
+witness vectors (`α = F`) and generator vectors (`α = G`). -/
+def loHalf {α : Type*} {k : ℕ} (a : Fin (2 ^ (k + 1)) → α) : Fin (2 ^ k) → α :=
   fun i => a ⟨i.val, by have h := i.isLt; have e := two_pow_succ k; omega⟩
 
 /-- The upper half of a length-`2^{k+1}` vector. -/
-def hiHalf {k : ℕ} (a : Fin (2 ^ (k + 1)) → F) : Fin (2 ^ k) → F :=
+def hiHalf {α : Type*} {k : ℕ} (a : Fin (2 ^ (k + 1)) → α) : Fin (2 ^ k) → α :=
   fun i => a ⟨2 ^ k + i.val, by have h := i.isLt; have e := two_pow_succ k; omega⟩
 
 /-- Reassemble a length-`2^{k+1}` vector from its two halves. -/
-def append {k : ℕ} (lo hi : Fin (2 ^ k) → F) : Fin (2 ^ (k + 1)) → F :=
+def append {α : Type*} {k : ℕ} (lo hi : Fin (2 ^ k) → α) : Fin (2 ^ (k + 1)) → α :=
   fun i => if h : i.val < 2 ^ k then lo ⟨i.val, h⟩
            else hi ⟨i.val - 2 ^ k, by have h2 := i.isLt; have e := two_pow_succ k; omega⟩
 
-omit [Field F] in
 /-- Reassembling the two halves recovers the original vector. -/
-theorem append_loHalf_hiHalf {k : ℕ} (a : Fin (2 ^ (k + 1)) → F) :
+theorem append_loHalf_hiHalf {α : Type*} {k : ℕ} (a : Fin (2 ^ (k + 1)) → α) :
     append (loHalf a) (hiHalf a) = a := by
   funext i
   rcases lt_or_ge i.val (2 ^ k) with h | h
