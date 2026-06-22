@@ -88,4 +88,18 @@ theorem sFun_fold (uⱼ init : F) (rest : List F) (g : Fin (2 ^ (rest.length + 1
     commitGen g (sFun (uⱼ :: rest) init) = commitGen (foldGens g uⱼ⁻¹) (sFun rest init) := by
   rw [commitGen_sFun_cons, foldGens, commitGen_add_gen, commitGen_smul_gen, inv_inv]
 
+/-- The full generator fold: fold `g` by `foldGens` at the inverted challenges down to a single generator. -/
+def foldAll : (u : List F) → (Fin (2 ^ u.length) → G) → (Fin (2 ^ 0) → G)
+  | [], g => g
+  | uⱼ :: rest, g => foldAll rest (foldGens g uⱼ⁻¹)
+
+/-- **The deployed `g`-term is `init` times the fully-folded generator.** Iterating `sFun_fold`:
+`commitGen g (sFun u init) = init • foldAll u g 0`. So `eval_ipaFold`'s `computeS`-term (`init = -c`) is
+`-c` times the IPA's final folded generator — the deployed flattening *is* the recursive generator fold. -/
+theorem commitGen_sFun_foldAll (u : List F) (init : F) (g : Fin (2 ^ u.length) → G) :
+    commitGen g (sFun u init) = init • foldAll u g 0 := by
+  induction u with
+  | nil => simp [sFun, foldAll, commitGen]
+  | cons uⱼ rest ih => rw [sFun_fold, ih, foldAll]
+
 end Zcash.Snark
