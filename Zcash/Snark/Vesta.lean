@@ -146,4 +146,42 @@ theorem orchard_verifier_sound_vesta_full [Fact VestaOrder] [DecidableEq VestaG]
   orchard_verifier_sound_deployed_full srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
     hpoly deg x hbind hz haccepts hrewind hquot hgood hencodes
 
+open Polynomial in
+/-- **The deployed Orchard verifier is sound over Vesta — fully closed (O2 + O3).**
+`orchard_verifier_sound_deployed_closed` specialised to `SWPoint Vesta.curve`: the IPA opening, the per-column
+multiopen decode (`decodeAdvice`/`decodeInstance` on the genuinely recovered columns), and the gate
+constraint are all derived from the deployed accept. Named floor: the IPA + batching rewinding bridges
+(`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0`, the gate point-check + SZ (`hquot`/`hgood`),
+the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_closed [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp) {P : VestaG} {v : Fp}
+    {nCols : ℕ} (C : Fin nCols → VestaG) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ srs.k) → Fp)) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → VestaG), AugmentedBinding (F := Fp) g' srs.u srs.w)
+    (hz : ch.z ≠ 0)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hIpa : DeployedIpaRewind srs (evalVector srs.k ch.x3) ch.z P v (DeployedAccepts srs hk vk ps ch))
+    (hMulti : DeployedMultiopenRewind srs (evalVector srs.k ch.x3) C e zBatch ch.z
+      (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      quotientCheck (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates) hpoly deg x)
+    (hgood : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ (a : Fin (2 ^ srs.k) → Fp) (col : Fin nCols → (Fin (2 ^ srs.k) → Fp)),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      IpaRelation srs P (evalVector srs.k ch.x3) v a →
+      circuitSatViaGates fixedCols (fun _ => decodeAdvice col) (fun _ => decodeInstance col) y gates hpoly deg a →
+      S) :
+    S :=
+  orchard_verifier_sound_deployed_closed srs hk vk ps ch C e zBatch fixedCols decodeAdvice decodeInstance
+    y gates hpoly deg x hbind hz haccepts hIpa hMulti hquot hgood hencodes
+
 end Zcash.Snark

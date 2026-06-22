@@ -109,14 +109,15 @@ The IPA / multiopen / constraint **soundness logic is fully proven** (binding-fr
 - **PROVEN — O1 (`s2-wiring-checklist.md`):** `deployed_verification_eq` proves the flat deployed accept IS
   halo2's IPA verifier equation with `G'₀ = foldAll` explicit (via `deployed_gterm_foldAll`), so the
   structural correspondence is no longer bundled — `DeployedIpaRewind`'s residual is the pure rewinding.
-- **STILL OPEN — O2/O3 (the constraint/multiopen *assembly*-soundness workstream):** (O2) deriving the
-  constraint check from the MSM first needs the permutation/lookup constraints modeled as polynomials
-  (`expectedHEval` folds gates ++ perm ++ lookup; `combineGates` covers only gates), then the vanishing-query
-  derivation. (O3) connecting `multiopen_decode_of_trees` to `decodeAdvice`/`decodeInstance` needs the
-  two-layer multiopen model + a batching-rewinding bridge + the column identification. Both bottom out at
-  VK-correctness and are comparable in size to the IPA weld.
+- **PROVEN — O2/O3 closed to the floor (`s2-wiring-checklist.md`):** O3 — `multiopen_decode_deployed` /
+  `decoded_columns_of_accept` recover the per-column openings from the batching rewinding (proven decode), so
+  `decodeAdvice`/`decodeInstance` act on the recovered columns. O2 — `orchard_verifier_sound_deployed_closed`
+  (+ Vesta `_vesta_closed`) derives the gate constraint on those columns via `circuitSatViaGates_of_check`
+  (SZ lift). Honest caveat: `hquot` is the verifier's vanishing check on the recovered columns (VK-correctness,
+  not from-scratch derivation), and a fully-derived `hquot` would additionally need the permutation/lookup
+  arguments modeled as polynomials (`combineGates` covers only the gates — the §3 circuit-encoding workstream).
 
-What remains beyond O2/O3 is exactly the standard, named cryptographic floor:
+What remains is exactly the standard, named cryptographic floor:
 - **Special-soundness rewinding** (`DeployedIpaRewind`: accept → distinct-challenge tree) — irreducible ROM.
 - **Augmented binding** (`AugmentedBinding`: `g ∪ {U,W}` independent) — DLR hardness / AGM on the Pasta
   generators (reduction proven for the plain commitment; extended to `params.u`/`params.w`).

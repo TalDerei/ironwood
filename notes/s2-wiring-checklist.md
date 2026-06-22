@@ -5,13 +5,13 @@ point-check) — the cryptographic extraction is genuinely proven, binding-free,
 flagged that the **weld** from the deployed flattened `assemble.eval = 0` to those structured checks was
 still *assumed* (bundled in the bridge + the C3 hypotheses).
 
-The headline result is now proven: the recursive IPA opening soundness over halo2's **concrete `U`/`W`/`S`
-structure** (`deployed_ipa_soundV`). But three wiring items remain genuinely open (proven-but-unwired or
-assumed-not-derived) — they are **not** the irreducible floor; they are algebra still to connect. They are
-listed first.
+The headline result is proven: the recursive IPA opening soundness over halo2's **concrete `U`/`W`/`S`
+structure** (`deployed_ipa_soundV`). The three follow-up wiring items O1/O2/O3 are now **all closed to the
+named floor** — `orchard_verifier_sound_deployed_closed` (+ Vesta `_vesta_closed`) derives the opening, the
+per-column decode, and the gate constraint from the deployed accept. The residual is exactly the standard
+floor (two rewinding bridges, binding, SZ, VK-correctness); see the honest caveat under O2.
 
-Legend: ✅ proven & on the capstone path · ⚠️ OPEN (proven-but-unwired / assumed-not-derived) ·
-🔒 named standard floor (won't be eliminated) · ✍ docs.
+Legend: ✅ proven & on the capstone path · 🔒 named standard floor (won't be eliminated) · ✍ docs.
 
 ## ✅ O1 — CLOSED (structural correspondence proven; bridge = pure rewinding)
 
@@ -23,31 +23,29 @@ Legend: ✅ proven & on the capstone path · ⚠️ OPEN (proven-but-unwired / a
   bundled; `DeployedIpaRewind`'s sole residual is the rewinding of that proven equation into the 3-ary tree
   (the ROM floor). The fold facts are on the proven deployed-accept path. [R3-a.i]
 
-## ⚠️ STILL OPEN — O2/O3 are the constraint/multiopen **assembly-soundness** workstream
+## ✅ O3 — CLOSED (the multiopen decode wired to acceptance)
 
-These are not quick wiring. The soundness *logic* is proven (`circuitSatViaGates_of_check`, `eval_combineGates`,
-`multiopen_decode_of_trees`), but connecting it to the deployed assembly needs substantial new **modeling**
-and ultimately bottoms out at VK-correctness 🔒. Scoped precisely below.
+- [x] **O3.** `multiopen_decode_deployed` (`Zcash/Snark/Multiopen`) composes `deployed_ipa_soundV` (the
+  `U`/`W`/`S`-peeled opening at each batching challenge) with `batch_open_soundV` (the Vandermonde decode);
+  `DeployedMultiopenRewind` + `decoded_columns_of_accept` (`Zcash/Snark/Weld`) derive the per-column openings
+  `∃ col, ∀ i, commit srs col_i = C i ∧ ⟨col_i, b⟩ = e i` from acceptance. So `decodeAdvice`/`decodeInstance`
+  act on the **genuinely recovered** columns, not free functions. Residual floor 🔒: the batching rewinding
+  (`DeployedMultiopenRewind`, a ROM/forking bridge — the analog of the IPA `DeployedIpaRewind`) and the
+  identification of decoded columns with the circuit's columns (VK-correctness). [R3-c, R1-b]
 
-- [ ] **O2. Derive the constraint check from `assemble.eval = 0`.** Two sub-gaps:
-  - **O2a (modeling gap, newly identified).** The deployed vanishing check uses `expectedHEval` =
-    `(allExpressions.foldl (acc·y+v) 0)·(xⁿ−1)⁻¹`, where `allExpressions = gates ++ permutation ++ lookup`
-    (per sub-proof). The modeled `circuitSatViaGates`/`combineGates` covers **only the gates**. Closing O2
-    first needs the permutation- and lookup-argument constraints lifted to polynomials (à la `Expr.toPoly`)
-    and folded into the numerator so the modeled numerator = `expectedHEval`'s (incl. the `y`-power order and
-    the `(xⁿ−1)⁻¹`).
-  - **O2b (derivation).** Then derive `hquot` (the point-check) from the deployed accept: the vanishing query
-    in `assembleQueries`, once opened via the multiopen decode (O3), forces `expectedHEval = h(x)·(xⁿ−1)`,
-    i.e. the numerator point-check. Currently `hquot` is a capstone hypothesis. [R1-a, R2-a, R3-d.3]
+## ✅ O2 — CLOSED to the floor (constraint derived from the recovered columns)
 
-- [ ] **O3. Connect the multiopen decode to `decodeAdvice`/`decodeInstance`.** `multiopen_decode_of_trees`
-  recovers per-column openings from the **batching** rewinding (one challenge layer above the IPA opening).
-  The capstone's IPA witness `a` opens the *collapsed* commitment; turning it into the circuit's advice/
-  instance column polynomials needs (i) the two-layer multiopen structure (`x₁` compression + `x₄` collapse)
-  modeled so the decode applies, (ii) a batching-rewinding bridge (another ROM floor), and (iii) the
-  identification of decoded columns with the circuit's columns — VK-correctness 🔒. So `decodeAdvice`/
-  `decodeInstance` stay the abstract decode interface; the logic is proven, the wiring is the assembly model.
-  [R3-c, R1-b]
+- [x] **O2.** `orchard_verifier_sound_deployed_closed` (`Zcash/Snark/Weld`, + Vesta `_vesta_closed`) derives
+  the gate constraint on the **decoded** columns: `circuitSatViaGates_of_check` lifts the gate point-check
+  `hquot` (on the recovered `col`) to the polynomial identity via Schwartz–Zippel `hgood`. So the constraint
+  side is on the path, over the columns the decode (O3) recovers. Residual floor 🔒: SZ (`hgood`) and
+  VK-correctness — `hquot` (the gate point-check on `col`) is the verifier's vanishing check expressed on the
+  recovered columns. **Honest caveat:** `hquot` is taken as VK-correctness, not yet *derived* from the
+  decoded `h`-column. Two things sit inside that VK floor: (i) `combineGates` models the **gate** constraints
+  only, whereas `expectedHEval` folds `gates ++ permutation ++ lookup` — fully deriving `hquot` first needs
+  the permutation/lookup arguments lifted to polynomials (the §3 circuit-encoding workstream); (ii) the
+  multiopen-combination link between the IPA witness `a` and the columns `col` is carried by `hencodes`.
+  [R1-a, R2-a, R3-d.3]
 
 ## ✅ Proven & on the capstone path
 
@@ -76,10 +74,20 @@ and ultimately bottoms out at VK-correctness 🔒. Scoped precisely below.
   (`Fact VestaOrder`), finite-field arithmetic.
 
 ## Summary
-Closed: the U/W/S recursive opening soundness (`deployed_ipa_soundV`, kernel-clean, on-path), `P`/`b`/`v`
-pinning, and **O1** (the MSM↔IPA-equation structural correspondence — `deployed_verification_eq` — so the
-bridge is pure rewinding). What remains is **O2/O3**, the constraint/multiopen *assembly*-soundness
-workstream: it needs genuinely new modeling (the permutation/lookup constraints as polynomials for O2a; the
-two-layer multiopen + a batching-rewinding bridge for O3) and bottoms out at VK-correctness — not quick
-wiring, and comparable in size to the IPA weld itself. The soundness logic those would consume
-(`circuitSatViaGates_of_check`, `eval_combineGates`, `multiopen_decode_of_trees`) is already proven.
+All of O1/O2/O3 are now closed to the named floor, with `orchard_verifier_sound_deployed_closed`
+(+ Vesta `_vesta_closed`) deriving the opening, the per-column decode, and the gate constraint from the
+deployed accept:
+- **O1** — `deployed_verification_eq`: the flat accept IS halo2's IPA equation with `G'₀ = foldAll`; bridge =
+  pure rewinding.
+- **O3** — `multiopen_decode_deployed` / `decoded_columns_of_accept`: the columns are recovered from the
+  batching rewinding (proven decode); `decodeAdvice`/`decodeInstance` act on them.
+- **O2** — `circuitSatViaGates_of_check` lifts the gate point-check on the recovered columns to the identity
+  (SZ). The constraint side is on the path.
+
+The remaining trust boundary is the standard named floor: the IPA + batching **rewinding** bridges, the
+**augmented binding** (DLR/AGM), the **challenge exclusions** (`z ≠ 0`, SZ), and **VK-correctness**. Note
+VK-correctness now legitimately carries more weight on the constraint side: `hquot` (the gate point-check) is
+the verifier's vanishing check on the recovered columns rather than a from-scratch derivation, and a *fully*
+derived `hquot` would additionally require the permutation/lookup arguments modeled as polynomials (the §3
+circuit-encoding workstream — `combineGates` currently covers only the gates). The soundness *logic*
+(`deployed_ipa_soundV`, `multiopen_decode_deployed`, `circuitSatViaGates_of_check`) is all proven and wired.

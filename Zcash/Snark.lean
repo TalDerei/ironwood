@@ -24,6 +24,7 @@ import Zcash.Snark.KnowledgeSoundness
 import Zcash.Snark.IpaSoundness
 import Zcash.Snark.IpaDeployed
 import Zcash.Snark.IpaUWS
+import Zcash.Snark.Multiopen
 import Zcash.Snark.Main
 import Zcash.Snark.Weld
 import Zcash.Snark.Vesta
