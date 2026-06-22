@@ -62,6 +62,21 @@ theorem commitGen_round {m : ℕ} (gLo gHi : Fin m → G) (aLo aHi : Fin m → F
     smul_add, smul_smul, inv_mul_cancel₀ hu, one_smul]
   abel
 
+/-- **The binding step: an accepting round response *is* the true fold.** If the folded-generator
+commitment is binding and the prover's response `a'` opens the verifier's folded commitment — the parent
+plus the cross terms `u·L + u⁻¹·R`, which by `commitGen_round` is exactly what the true fold opens — then
+`a'` equals the true fold `aLo + u⁻¹ • aHi`. This is the crux that promotes an accepting transcript to a
+`Zcash.Snark.Consistent` tree (the per-node step; the recursion over the `k` rounds mirrors
+`Zcash.Snark.extract_correct`), so the only remaining hypothesis is binding (DLR hardness) at the folded
+generators. -/
+theorem accepting_fold_eq {m : ℕ} (gLo gHi : Fin m → G) (aLo aHi a' : Fin m → F) {u : F} (hu : u ≠ 0)
+    (hbind : Function.Injective (commitGen (F := F) (gLo + u • gHi)))
+    (haccept : commitGen (gLo + u • gHi) a'
+      = (commitGen gLo aLo + commitGen gHi aHi) + u • commitGen gHi aLo + u⁻¹ • commitGen gLo aHi) :
+    a' = aLo + u⁻¹ • aHi := by
+  apply hbind
+  rw [haccept, commitGen_round gLo gHi aLo aHi hu]
+
 /-! ## Binding as a discrete-log-relation hardness assumption
 
 Rather than *assuming* the commitment is binding outright, we model it as a **reduction** to a hardness
