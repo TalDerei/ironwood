@@ -47,6 +47,12 @@ def ColumnRef.resolve {F : Type*} (cr : ColumnRef) (instanceEvals adviceEvals fi
   | .fixed i => fixedEvals i
   | .instance i => instanceEvals i
 
+-- TODO(VK-correctness): a `VerifyingKey` value is populated from the halo2 `dump_lean_fixture` capture
+-- (`Fixture.lean`) and trusted *verbatim* — Lean never re-derives the verifying key from the Orchard
+-- circuit. So "the dumped `gates`/`omega`/`n`/query layouts are the real circuit's VK" is an assumption,
+-- not a theorem (the input-faithfulness seam). Discharging it means re-running keygen from the circuit
+-- definition and comparing. This is distinct from, and cheaper than, the output-side adequacy gap
+-- (Step 4, see `Main.lean`). Tracked under "VK-correctness" in `notes/fv-review-checklist.md`.
 /-- The verifying-key–level circuit structure the assembly needs (halo2 `VerifyingKey` / `ConstraintSystem`).
 `omega` is the domain generator and `n = 2 ^ k` the domain size; `blindingFactors`, `delta`, `chunkLen`
 are the permutation-argument constants. `gates` are the custom-gate polynomials; `instance/advice/fixed
