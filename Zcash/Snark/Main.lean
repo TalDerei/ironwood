@@ -181,13 +181,14 @@ theorem ipaRelation_of_acceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G
   have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
   rw [hib]; exact hv
 
-/-- **The transcript-tree bridge.** Acceptance yields an `IpaAcceptV` tree. Narrower than
-`ExtractableFromDeployedAccept` (no bundled `IpaRelation`/`circuitSat` — `ipa_soundV` derives them), but
-**not** purely the rewinding: it also absorbs (i) the MSM↔tree structural correspondence — that
-`assemble.eval = 0` actually unfolds into these recursive checks for the proof's `P,b,v,L,R` (provable via
-`eval_assembleFinalMsm`; checklist B, not yet wired) — and (ii) the pinning of free `P,b,v` to the proof.
-The genuinely irreducible core is the rewinding (`accept → ∃` distinct-challenge tree); the rest is
-mechanical wiring still to discharge. -/
+/-- **The transcript-tree bridge — SUPERSEDED by `Zcash.Snark.DeployedIpaRewind`.** Acceptance yields a
+*clean* `IpaAcceptV` tree. This still absorbed two things beyond the rewinding: (i) the MSM↔tree structural
+correspondence and (ii) the `U`/`W`/`S` separation (since `IpaAcceptV` is the blinding-free IPA). Both are
+now **proven**: the generator/value fold correspondence (`foldAll = G'₀`, `compute_b = ⟨sFun, evalVector⟩`,
+`Zcash.Snark.IpaDeployed`) and the `U`/`W`/`S` peeling onto `ipa_soundV` (`Zcash.Snark.deployed_ipa_soundV`).
+`DeployedIpaRewind` (`Zcash.Snark.Weld`) is the replacement bridge — the *pure* rewinding to the *deployed*
+`U`/`W`/`S`-carrying tree (`DeployedIpaAcceptV`), with nothing else bundled. Prefer the capstones
+`orchard_verifier_sound_deployed_full` / `_pinned` over the `_C1`/`_C3` theorems that use this. -/
 def FiatShamirTree (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G) (v : Fp) (accepts : Prop) : Prop :=
   accepts → ∃ t : IpaTreeV Fp G srs.k, IpaAcceptV srs.g b P v t
 
