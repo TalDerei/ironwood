@@ -85,4 +85,32 @@ theorem orchard_verifier_sound_vesta_C1 [Fact VestaOrder] [DecidableEq VestaG] [
     S :=
   orchard_verifier_sound_deployed_C1 srs hk vk ps ch haccepts hFS hcirc hencodes
 
+open Polynomial in
+/-- **The deployed Orchard verifier is sound over Vesta — C1 and C3.** `orchard_verifier_sound_deployed_C3`
+specialised to `SWPoint Vesta.curve`: both conjuncts of `SnarkRelation` are derived — `IpaRelation` via
+`ipa_soundV` and `circuitSat` (concrete `circuitSatViaGates`) from the verifier's gate point-check `hquot`
+lifted by Schwartz–Zippel (`hgood`). Named assumptions: the rewinding (`hFS`), the gate check (`hquot`), the
+SZ good challenge (`hgood`), the Vesta curve order, and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_C3 [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
+    {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin (2 ^ srs.k) → Fp) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hFS : FiatShamirTree srs b P v (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ a, IpaRelation srs P b v a →
+      quotientCheck (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates) hpoly deg x)
+    (hgood : ∀ a, IpaRelation srs P b v a →
+      combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ a, SnarkRelation srs P b v
+      (circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg) a → S) :
+    S :=
+  orchard_verifier_sound_deployed_C3 srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
+    hpoly deg x haccepts hFS hquot hgood hencodes
+
 end Zcash.Snark
