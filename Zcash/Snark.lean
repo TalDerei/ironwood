@@ -20,3 +20,4 @@ import Zcash.Snark.Extraction
 import Zcash.Snark.Constraints
 import Zcash.Snark.CommitFold
 import Zcash.Snark.KnowledgeSoundness
+import Zcash.Snark.Main
