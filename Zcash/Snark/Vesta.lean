@@ -69,4 +69,20 @@ theorem orchard_verifier_sound_vesta_deployed [Fact VestaOrder] [DecidableEq Ves
     S :=
   orchard_verifier_sound_deployed_final srs hk vk ps ch haccepts hbridge hencodes
 
+/-- **The deployed Orchard verifier is sound over Vesta, with the IPA opening derived (C1 closed).**
+`orchard_verifier_sound_deployed_C1` specialised to `SWPoint Vesta.curve`: the bridge `hFS` supplies only
+the special-soundness transcript tree (the minimal Fiat–Shamir assumption), and `IpaRelation` is *derived*
+from it (`ipa_soundV`), not assumed. The remaining named assumptions are the rewinding (`hFS`), the circuit
+side (`hcirc`, C3), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_C1 [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
+    {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hFS : FiatShamirTree srs b P v (DeployedAccepts srs hk vk ps ch))
+    (hcirc : ∀ a, IpaRelation srs P b v a → circuitSat a)
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
+    S :=
+  orchard_verifier_sound_deployed_C1 srs hk vk ps ch haccepts hFS hcirc hencodes
+
 end Zcash.Snark
