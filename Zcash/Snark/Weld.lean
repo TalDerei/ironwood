@@ -277,4 +277,46 @@ theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {sh
       y gates hpoly deg a x (hquot col hcol) (hgood col hcol)
   exact hencodes a col hcol hrel hsat
 
+/-! ## O3 closed: the relation over the decoded columns directly (no free `a`)
+
+The capstones above derive both the IPA-collapse witness `a` (opens `P`) and the decoded columns `col`, but
+pass them to `hencodes` *unlinked* — review correctly flagged that the `a`↔`col` multiopen-combination tie was
+not modeled. This capstone removes the issue at the root: it states the relation **over the decoded columns
+themselves**, which are the actual circuit witness. The collapse witness `a` does not appear — the IPA opening
+is used only *inside* the decode (`decoded_columns_of_accept` calls `deployed_ipa_soundV` per batching
+challenge), so the conclusion is "the recovered columns open their commitments **and** satisfy the gates", with
+nothing free to link. -/
+open Polynomial in
+theorem orchard_verifier_sound_deployed_cols [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp)
+    {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ srs.k) → Fp)) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := Fp) g' srs.u srs.w)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hMulti : DeployedMultiopenRewind srs (evalVector srs.k ch.x3) C e zBatch ch.z
+      (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      quotientCheck (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates) hpoly deg x)
+    (hgood : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates = hpoly * (X ^ deg - 1) →
+      S) :
+    S := by
+  obtain ⟨col, hcol⟩ :=
+    decoded_columns_of_accept srs (evalVector srs.k ch.x3) C e zBatch hbind hMulti haccepts
+  have hsat := circuitSatViaGates_of_check fixedCols (fun _ => decodeAdvice col)
+    (fun _ => decodeInstance col) y gates hpoly deg (0 : Fin (2 ^ srs.k) → Fp) x (hquot col hcol)
+    (hgood col hcol)
+  exact hencodes col hcol hsat
+
 end Zcash.Snark
