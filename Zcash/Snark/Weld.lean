@@ -93,6 +93,38 @@ theorem ipaRelation_of_flat (srs : SRS G) (b aP aSxi aRounds vVec svTerm : Fin (
   exact ⟨commit_eq_commitGen srs aP, deployed_open_value b aP aSxi aRounds vVec svTerm uRounds uConst
     v ipRounds cb z hg hu hSxi hvVec hsvTerm hRounds huConst huRounds hz⟩
 
+/-- **The glue: `DeployedAccepts` unfolds to the flat equation in AGM-representation form (O1 connected to
+the real assembly).** Given the prover's group elements via their AGM representations — the multiopen
+commitment `(assembleOpening …).1.eval = ⟨aP,g⟩ + pw•w`, the blinding poly `ps.ipaS = ⟨aS,g⟩ + sw•w`, and the
+round total `Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) = ⟨aRounds,g⟩ + uRounds•u + wRounds•w` — the deployed accept
+`assemble.eval = 0` is exactly `ipaRelation_of_flat`'s hypothesis. Composes `eval_assembleFinalMsm` (the §1
+algebra — `assemble.eval` in closed form) with the representations; the `[-v]g₀` and `computeS` terms are the
+`g`-commitments `⟨vVec,g⟩`, `⟨svTerm,g⟩` definitionally. So O1's structural correspondence is a proof *from*
+`assemble.eval = 0`, with the only added inputs the AGM representations. -/
+theorem deployed_accept_flat [DecidableEq G] [Inhabited G] {shape : Shape} (g : Fin (2 ^ shape.k) → G)
+    (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G) (ch : Challenges shape.k Fp)
+    (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds : Fp)
+    (hP : (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).1.eval
+        ⟨shape.k, g, w, uu⟩ = commitGen g aP + pw • w)
+    (hS : ps.ipaS = commitGen g aS + sw • w)
+    (hRounds : (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+        (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum = commitGen g aRounds + uRounds • uu + wRounds • w)
+    (haccepts : (assemble vk ps ch).eval ⟨shape.k, g, w, uu⟩ = 0) :
+    commitGen g aP + pw • w
+      + (commitGen g (ch.xi • aS) + (ch.xi * sw) • w)
+      + (commitGen g aRounds + uRounds • uu + wRounds • w)
+      + commitGen g (fun i => ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime
+          (List.ofFn ps.multiopenU) (constructIntermediateSets (assembleQueries vk ps ch))
+          (Msm.zero shape.k Fp G)).2] : List Fp).getD i.val 0)
+      + ((-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z) • uu
+      + (-ps.ipaF) • w
+      + commitGen g (fun i => (computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD (i : ℕ) 0) = 0 := by
+  unfold assemble at haccepts
+  rw [eval_assembleFinalMsm, hP, hS, hRounds] at haccepts
+  simp only [commitGen, smul_add, Finset.smul_sum, smul_smul, Pi.smul_apply, smul_eq_mul] at haccepts ⊢
+  rw [← haccepts]; abel
+
 /-- **The deployed verifier's IPA bridge — rewinding PLUS a proven-but-unwired structural correspondence
 (honest scope).** Acceptance yields a *deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying
 `U`/`W`/`S`) for the proof's eval vector `b`, commitment `P` and value `v`. What is genuinely peeled *on the
