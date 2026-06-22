@@ -212,4 +212,54 @@ theorem orchard_verifier_sound_deployed_pinned {shape : Shape}
   orchard_verifier_sound_deployed_full (⟨shape.k, g, w, u⟩ : SRS G) rfl vk ps ch fixedCols
     decodeAdvice decodeInstance y gates hpoly deg xc hbind hz haccepts hrewind hquot hgood hencodes
 
+/-! ## Fully closed capstone — opening, decode, and constraint all derived (O2 + O3)
+
+`orchard_verifier_sound_deployed_closed` derives all three soundness ingredients from the deployed accept:
+the IPA opening (`ipaRelation_of_deployedAcceptV`, `U`/`W`/`S` peeled), the per-column decode
+(`decoded_columns_of_accept` — `decodeAdvice`/`decodeInstance` now act on the *genuinely recovered* columns,
+not free functions), and the gate constraint (`circuitSatViaGates_of_check` lifting the gate point-check
+`hquot` on those columns to the identity via Schwartz–Zippel `hgood`). The residual is exactly the named
+floor: the two rewinding bridges (`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0`, the gate
+point-check + SZ good challenge (`hquot`/`hgood` — VK-correctness on the recovered columns + SZ), and
+VK-correctness (`hencodes`, which also carries the multiopen-combination link between the IPA witness `a` and
+the decoded columns, the one structural fact not modeled here). -/
+open Polynomial in
+theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) {P : G} {v : Fp}
+    {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ srs.k) → Fp)) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := Fp) g' srs.u srs.w)
+    (hz : ch.z ≠ 0)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hIpa : DeployedIpaRewind srs (evalVector srs.k ch.x3) ch.z P v (DeployedAccepts srs hk vk ps ch))
+    (hMulti : DeployedMultiopenRewind srs (evalVector srs.k ch.x3) C e zBatch ch.z
+      (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      quotientCheck (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates) hpoly deg x)
+    (hgood : ∀ col : Fin nCols → (Fin (2 ^ srs.k) → Fp),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ (a : Fin (2 ^ srs.k) → Fp) (col : Fin nCols → (Fin (2 ^ srs.k) → Fp)),
+      (∀ i, commitGen srs.g (col i) = C i ∧ commitGen (evalVector srs.k ch.x3) (col i) = e i) →
+      IpaRelation srs P (evalVector srs.k ch.x3) v a →
+      circuitSatViaGates fixedCols (fun _ => decodeAdvice col) (fun _ => decodeInstance col) y gates hpoly deg a →
+      S) :
+    S := by
+  obtain ⟨blind, t, ht⟩ := hIpa haccepts
+  obtain ⟨a, hrel⟩ := ipaRelation_of_deployedAcceptV srs (evalVector srs.k ch.x3) P v hbind hz ht
+  obtain ⟨col, hcol⟩ :=
+    decoded_columns_of_accept srs (evalVector srs.k ch.x3) C e zBatch hbind hMulti haccepts
+  have hsat : circuitSatViaGates fixedCols (fun _ => decodeAdvice col) (fun _ => decodeInstance col)
+      y gates hpoly deg a :=
+    circuitSatViaGates_of_check fixedCols (fun _ => decodeAdvice col) (fun _ => decodeInstance col)
+      y gates hpoly deg a x (hquot col hcol) (hgood col hcol)
+  exact hencodes a col hcol hrel hsat
+
 end Zcash.Snark
