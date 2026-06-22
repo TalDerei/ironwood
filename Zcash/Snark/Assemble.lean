@@ -173,6 +173,32 @@ def compressSet {k : ℕ} {F G : Type*} [Field F] (x1 : F)
     (Msm.zero k F G, List.replicate numPoints (0 : F), (1 : F))
   (res.1, res.2.1)
 
+/-- Evaluating the `x₁`-compression fold: the running MSM evaluates to `Σⱼ x₁ʲ • cⱼ` (as the `(G × F)`
+running `(value, power)` fold). The eval-vector component is irrelevant to the MSM, carried abstractly. -/
+theorem eval_foldl_compress {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
+    (x1 : F) (l : List (CommitmentRef srs.k F G × List F)) (m0 : Msm srs.k F G) (ev0 : List F)
+    (pow0 : F) :
+    (l.foldl (fun (st : Msm srs.k F G × List F × F) qc =>
+        (accumulateCommitment st.2.2 qc.1 st.1, (st.2.1.zip qc.2).map (fun e => e.1 + e.2 * st.2.2),
+         st.2.2 * x1)) (m0, ev0, pow0)).1.eval srs
+      = (l.foldl (fun (acc : G × F) qc => (acc.1 + acc.2 • qc.1.eval srs, acc.2 * x1))
+          (m0.eval srs, pow0)).1 := by
+  induction l generalizing m0 ev0 pow0 with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.foldl_cons, List.foldl_cons, ih]
+    simp only [eval_accumulateCommitment]
+
+/-- The `x₁`-compressed per-set commitment evaluates to `Σⱼ x₁ʲ • (its commitments' values)`. -/
+theorem eval_compressSet_fst {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
+    (x1 : F) (setQueries : List (CommitmentRef srs.k F G × List F)) (numPoints : ℕ) :
+    (compressSet x1 setQueries numPoints).1.eval srs
+      = (setQueries.foldl (fun (acc : G × F) qc => (acc.1 + acc.2 • qc.1.eval srs, acc.2 * x1))
+          ((0 : G), (1 : F))).1 := by
+  simp only [compressSet]
+  rw [eval_foldl_compress]
+  simp only [Msm.eval_zero]
+
 /-- The multiopen opening MSM and combined value (halo2 `multiopen/verifier.rs`): compress each point
 set by `x₁`, compute the combined evaluation by Lagrange interpolation at `x₃` (`multiopenEval`), then
 collapse by `x₄` against `q'` (`multiopenCombine`). `u` are the prover's claimed per-set quotient

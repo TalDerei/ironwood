@@ -106,6 +106,32 @@ def multiopenCombine {k : ℕ} {F G : Type*} [Field F] (x4 : F) (qPrime : G)
     (fun (st : Msm k F G × F) p => ((st.1.scale x4).add p.1, st.2 * x4 + p.2))
     (incoming.appendTerm (1 : F) qPrime, msmEval)
 
+/-- Evaluating the `x₄`-collapse fold: the running MSM evaluates to the Horner fold of the per-set
+commitment values (`acc ↦ x₄ • acc + qⱼ`). The value component is irrelevant to the MSM, so it is carried
+abstractly through the induction. -/
+theorem eval_foldl_combine {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
+    (x4 : F) (l : List (Msm srs.k F G × F)) (m0 : Msm srs.k F G) (v0 : F) :
+    (l.foldl (fun (st : Msm srs.k F G × F) p => ((st.1.scale x4).add p.1, st.2 * x4 + p.2))
+        (m0, v0)).1.eval srs
+      = l.foldl (fun (acc : G) p => x4 • acc + p.1.eval srs) (m0.eval srs) := by
+  induction l generalizing m0 v0 with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.foldl_cons, List.foldl_cons, ih]
+    simp only [Msm.eval_add, Msm.eval_scale]
+
+/-- The multiopen `x₄`-collapse MSM evaluates to the Horner combination of the per-set commitment values,
+based at the incoming commitment plus `q'`. -/
+theorem eval_multiopenCombine_fst {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
+    (x4 : F) (qPrime : G) (qCommitments : List (Msm srs.k F G)) (u : List F) (msmEval : F)
+    (incoming : Msm srs.k F G) :
+    (multiopenCombine x4 qPrime qCommitments u msmEval incoming).1.eval srs
+      = (qCommitments.zip u).foldl (fun (acc : G) p => x4 • acc + p.1.eval srs)
+          (incoming.eval srs + qPrime) := by
+  simp only [multiopenCombine]
+  rw [eval_foldl_combine]
+  simp only [Msm.eval_appendTerm, one_smul]
+
 /-- The value at `x` of the polynomial interpolating `(points, evals)`, in barycentric Lagrange form
 `Σᵢ evalsᵢ · ∏_{j≠i} (x − pⱼ)/(pᵢ − pⱼ)`. This is the same field element as halo2's
 `eval_polynomial (lagrange_interpolate points evals) x` (the unique interpolant evaluated at `x`). -/
