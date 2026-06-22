@@ -63,4 +63,29 @@ theorem sFun_getD (u : List F) (init : F) (i : Fin (2 ^ u.length)) :
         List.getD_append_right _ _ _ _ (by rw [hlen]; omega), getD_map_mul, hlen]
       ring
 
+variable {G : Type*} [AddCommGroup G] [Module F G]
+
+/-- The deployed `g`-term of `eval_ipaFold` (`∑ i, (computeS u init).getD i • g i`) is the commitment of the
+`s`-vector: `commitGen g (sFun u init)`. (From `sFun_getD`.) -/
+theorem gterm_eq (u : List F) (init : F) (g : Fin (2 ^ u.length) → G) :
+    (∑ i, (computeS u init).getD i.val 0 • g i) = commitGen g (sFun u init) := by
+  simp only [commitGen]
+  exact Finset.sum_congr rfl (fun i _ => by rw [sFun_getD])
+
+/-- The `s`-vector commitment recurses by the round challenge: the head challenge `uⱼ` combines the two
+generator halves (the deployed `u`-convention). `commitGen_append` + `commitGen_smul_left` on `sFun`'s
+definitional `append`. -/
+theorem commitGen_sFun_cons (uⱼ init : F) (rest : List F) (g : Fin (2 ^ (rest.length + 1)) → G) :
+    commitGen g (sFun (uⱼ :: rest) init)
+      = commitGen (loHalf g) (sFun rest init) + uⱼ • commitGen (hiHalf g) (sFun rest init) := by
+  rw [sFun, commitGen_append, commitGen_smul_left]
+
+/-- **The deployed `s`-vector commitment is one `foldGens` step (at the inverted challenge).** This is the
+convention reconciliation: the deployed flattening (`computeS` with `uⱼ`) folds the generators by
+`foldGens g uⱼ⁻¹ = loHalf g + uⱼ • hiHalf g` — exactly `ipa_soundV`'s `foldGens` at `uⱼ⁻¹`. So the deployed
+`g`-term unfolds into the same recursion `ipa_soundV` runs on. -/
+theorem sFun_fold (uⱼ init : F) (rest : List F) (g : Fin (2 ^ (rest.length + 1)) → G) :
+    commitGen g (sFun (uⱼ :: rest) init) = commitGen (foldGens g uⱼ⁻¹) (sFun rest init) := by
+  rw [commitGen_sFun_cons, foldGens, commitGen_add_gen, commitGen_smul_gen, inv_inv]
+
 end Zcash.Snark
