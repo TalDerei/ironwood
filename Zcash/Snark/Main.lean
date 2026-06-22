@@ -1,6 +1,7 @@
 import Mathlib
 import Zcash.Snark.KnowledgeSoundness
 import Zcash.Snark.Assemble
+import Zcash.Snark.Consistency
 
 /-!
 # Soundness composition — CONDITIONAL, not yet completed (§2, in progress)
@@ -95,5 +96,27 @@ theorem orchard_verifier_sound_deployed [DecidableEq G] [Inhabited G] {shape : S
     {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S :=
   orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
+
+/-- **Soundness from an accepting IPA transcript — the extraction now PROVEN, not assumed.** Given an
+accepting witness tree over the SRS generators (`haccept`; the per-node binding/DLR hardness lives inside
+`Accepting`), the root response opening the commitment (`hopen`), and its circuit-satisfaction (`hsat`),
+the **extracted** witness `extract wt.toTree` satisfies `SnarkRelation`, hence `S`.
+
+This is the payoff of the C3 work: `accepting_extract` (the IPA extraction, `accepting_imp_wconsistent` +
+`extract_correct`) is **on the path** — the conclusion is about the *extracted* witness, so the extractor
+genuinely contributes (unlike `orchard_verifier_sound_conditional`, where it was discarded). The residual
+assumption is now only the **structural** `accept → ∃ Accepting tree` (the multiopen decode, checklist
+C1-full) together with the response's opening (`hopen`) and circuit-satisfaction (`hsat` — itself
+dischargeable by `circuitSatViaGates_of_check`). -/
+theorem orchard_sound_via_transcript (srs : SRS G)
+    (wt : WTree Fp srs.k) (haccept : Accepting srs.g wt)
+    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} (hopen : IpaRelation srs P b v wt.witness)
+    {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop} (hsat : circuitSat wt.witness)
+    {S : Prop} (hencodes : SnarkRelation srs P b v circuitSat (extract wt.toTree) → S) :
+    S := by
+  have hext : extract wt.toTree = wt.witness := accepting_extract srs.g wt haccept
+  have hrel : SnarkRelation srs P b v circuitSat (extract wt.toTree) := by
+    rw [hext]; exact ⟨hopen, hsat⟩
+  exact hencodes hrel
 
 end Zcash.Snark
