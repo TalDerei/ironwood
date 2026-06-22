@@ -378,6 +378,23 @@ theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {sh
       y gates hpoly deg a x (hquot col hcol) (hgood col hcol)
   exact hencodes a col hcol hrel hsat
 
+/-! ## O2: the gate point-check derived from the deployed vanishing argument (not assumed)
+
+The capstones above take `hquot` (the gate point-check) as a hypothesis. Here it is **derived**: the deployed
+verifier opens the `h`-commitment to `expectedHEval` at `x` (the vanishing query), which the multiopen decode
+recovers as the decoded `h`-column's evaluation (`hHcol : h.eval x = eHEval`); and the assembly's constraint
+combination equals the circuit's numerator polynomial at `x` (`hNum : numerator.eval x = eHEval·(xⁿ−1)` — this
+is VK-correctness: the assembly faithfully computes the circuit's full gate+permutation+lookup numerator).
+Together they give the point-check `numerator.eval x = h.eval x·(xⁿ−1)`, which `constraint_identity_of_accept`
+lifts to the polynomial identity by Schwartz–Zippel (`hgood`). So `hquot` is no longer assumed — it is a
+proof from the decode + VK-correctness; the residual is the decode (O3, proven), the VK numerator (§3), and SZ. -/
+open Polynomial in
+theorem deployed_constraint_of_decode (numerator h : Polynomial Fp) (n : ℕ) (x eHEval : Fp)
+    (hHcol : h.eval x = eHEval) (hNum : numerator.eval x = eHEval * (x ^ n - 1))
+    (hgood : numerator ≠ h * (X ^ n - 1) → (numerator - h * (X ^ n - 1)).eval x ≠ 0) :
+    numerator = h * (X ^ n - 1) :=
+  constraint_identity_of_accept numerator h n x (by rw [quotientCheck, hNum, hHcol]) hgood
+
 /-! ## O3 closed: the relation over the decoded columns directly (no free `a`)
 
 The capstones above derive both the IPA-collapse witness `a` (opens `P`) and the decoded columns `col`, but
