@@ -117,4 +117,50 @@ theorem foldAll_eq_compute_g (u : List F) (g : Fin (2 ^ u.length) → G) :
     foldAll u g 0 = ∑ i, (computeS u 1).getD i.val 0 • g i := by
   rw [gterm_eq, commitGen_sFun_foldAll, one_smul]
 
+/-- halo2 `compute_b`'s squared-`x` accumulator reaches `x^(2^|u|)`. -/
+theorem computeB_snd (x : F) (u : List F) :
+    (u.reverse.foldl (fun acc uⱼ => (acc.1 * (1 + uⱼ * acc.2), acc.2 * acc.2)) ((1 : F), x)).2
+      = x ^ (2 ^ u.length) := by
+  induction u with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.reverse_cons, List.foldl_append, List.foldl_cons, List.foldl_nil, ih, ← pow_add,
+      List.length_cons, pow_succ]
+    ring
+
+/-- One-round recursion of halo2 `compute_b`: `compute_b x (uⱼ::rest) = compute_b x rest · (1 + uⱼ·x^(2^|rest|))`. -/
+theorem computeB_cons (x uⱼ : F) (rest : List F) :
+    computeB x (uⱼ :: rest) = computeB x rest * (1 + uⱼ * x ^ (2 ^ rest.length)) := by
+  conv_lhs => rw [computeB, List.reverse_cons, List.foldl_append, List.foldl_cons, List.foldl_nil]
+  rw [computeB_snd]
+  rfl
+
+/-- Lower half of the eval vector `i ↦ xⁱ` is the same eval vector (one size down). -/
+theorem loHalf_pow (x : F) (k : ℕ) :
+    loHalf (fun i : Fin (2 ^ (k + 1)) => x ^ (i.val)) = fun i : Fin (2 ^ k) => x ^ (i.val) := by
+  funext i; simp [loHalf]
+
+/-- Upper half of the eval vector `i ↦ xⁱ` is `x^(2ᵏ) ·` the eval vector (the powers `x^{2ᵏ+i}`). -/
+theorem hiHalf_pow (x : F) (k : ℕ) :
+    hiHalf (fun i : Fin (2 ^ (k + 1)) => x ^ (i.val)) = x ^ (2 ^ k) • (fun i : Fin (2 ^ k) => x ^ (i.val)) := by
+  funext i; simp [hiHalf, Pi.smul_apply, smul_eq_mul, pow_add]
+
+/-- **halo2 `compute_b` is the `s`-vector evaluated at `x`** — the value-side analog of
+`foldAll = G'₀`. `compute_b x u = ∏(1 + uⱼx^{2ⁱ}) = ⟨sFun u 1, (xⁱ)ᵢ⟩ = Σᵢ (compute_s(u,1))ᵢ xⁱ`
+(here as `commitGen (i ↦ xⁱ) (sFun u 1)`, i.e. the inner product at `G := F`). This is the inner product the
+IPA's `U`-term binds, tying halo2's `[-c·b·z]U` value mechanism to `ipa_soundV`'s inner-product check. -/
+theorem computeB_eq (x : F) (u : List F) :
+    computeB x u = commitGen (fun i : Fin (2 ^ u.length) => x ^ (i.val)) (sFun u 1) := by
+  induction u with
+  | nil => simp [computeB, sFun, commitGen]
+  | cons uⱼ rest ih =>
+    rw [computeB_cons, ih, commitGen_sFun_cons]
+    simp only [List.length_cons, loHalf_pow, hiHalf_pow, commitGen_smul_gen, smul_eq_mul]
+    ring
+
+/-- `compute_b` as the explicit inner product `Σᵢ (sFun u 1)ᵢ · xⁱ`. -/
+theorem computeB_eq_sum (x : F) (u : List F) :
+    computeB x u = ∑ i, (sFun u 1) i * x ^ (i.val) := by
+  rw [computeB_eq, commitGen_eq_innerProduct]
+
 end Zcash.Snark
