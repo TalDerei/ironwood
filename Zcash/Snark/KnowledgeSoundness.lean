@@ -29,8 +29,10 @@ This layer is sound **relative to** the following, each kept explicit rather tha
   `CommitmentBinding`. Modeled as a reduction: `relation_of_collision` proves a binding violation yields
   a nontrivial relation, and `commitmentBinding_iff_no_relation` proves binding *is* exactly DLR hardness
   (the reduction is proven; only the hardness is claimed).
-* **Fiat–Shamir / Blake2b** as a random oracle — the non-interactive challenges are taken from the
-  captured transcript (`Zcash.Snark.FiatShamir`); the random-oracle reduction is not formalized.
+* **Fiat–Shamir / Blake2b** as a random oracle — challenges are treated as uniform and unpredictable; the
+  hash and the random-oracle reduction are not modeled. ⚠️ The capstone's current assumption
+  (`ExtractableFromAcceptance`) is in fact *stronger* — it bundles the IPA knowledge-soundness conclusion,
+  not just FS; narrowing it to "uniform challenges" is checklist C3.
 * **Vesta curve order** — the abstract development runs over any `Fp`-module `G`, but `Zcash.Snark.Vesta`
   pins it to the *concrete* Vesta curve `SWPoint Vesta.curve` (`y² = x³ + 5`), whose group law is proven
   (mathlib's elliptic-curve group law, via `WeierstrassCurve.Affine.Point`). The sole residual assumption
@@ -57,18 +59,24 @@ variable {G : Type*} [AddCommGroup G] [Module Fp G]
 
 /-- The relation the SNARK proves: the witness `a` **opens** the commitment `P` to the value `v`
 (`IpaRelation`), and the committed polynomials **satisfy** the circuit's quotient identity
-`numerator = h · (Xⁿ − 1)` (the gate/permutation/lookup constraints hold as polynomials). -/
+`numerator = h · (Xⁿ − 1)` (the gate/permutation/lookup constraints hold as polynomials).
+
+⚠️ Currently `numerator/h/n` are **free of `a`** — the two conjuncts share no variable — so this does not
+yet state "the *extracted* witness satisfies the circuit." Tying `numerator` to `a` via
+`combineGates`/`Expr.toPoly` is checklist C2 (`notes/fv-review-checklist.md`). -/
 structure SnarkRelation (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
     (numerator h : Polynomial Fp) (n : ℕ) (a : Fin (2 ^ srs.k) → Fp) : Prop where
   opens : IpaRelation srs P b v a
   constraintsHold : numerator = h * (X ^ n - 1)
 
-/-- **Knowledge soundness (end to end, modulo the named assumptions).** From an accepting transcript
-tree `t` consistent with the witness `a` (binding ⇒ consistent, via `commitGen_round`), the opening the
-verifier checks (`hopen`), and the constraint identity holding as polynomials (the `quotientCheck_sound`
-conclusion off the Schwartz–Zippel bad set), the extractor recovers the **unique** witness satisfying
-`SnarkRelation`. Composes `extract_correct` (extraction) and `ipaRelation_unique` (uniqueness under DLR
-hardness). -/
+/-- **Knowledge soundness (modulo its hypotheses).** *Given* a consistent transcript tree `t` for `a`
+(`hcons`), the opening (`hopen`), and the constraint identity (`hcon`), the extractor recovers the
+**unique** witness satisfying `SnarkRelation`. Composes `extract_correct` (extraction) and
+`ipaRelation_unique` (uniqueness under DLR hardness).
+
+⚠️ The hypotheses `hcons` and `hcon` are **assumed** here, not derived from acceptance — deriving them
+(via `accepting_fold_eq` + `commitGen_round`, and `quotientCheck_sound` off the `d/p` bad set) is the open
+composition work (checklist C2/C3). -/
 theorem knowledge_sound (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
     {t : Tree Fp srs.k} {a : Fin (2 ^ srs.k) → Fp} (hcons : Consistent t a)
     {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} (hopen : IpaRelation srs P b v a)

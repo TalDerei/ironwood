@@ -39,18 +39,19 @@ no axiom (the `Fact` is supplied as a hypothesis, never globally). -/
 noncomputable instance vestaFpModule [h : Fact VestaOrder] : Module Fp VestaG :=
   AddCommGroup.zmodModule h.out
 
-/-- **The Orchard verifier is sound over the concrete Vesta curve.** This is `orchard_verifier_sound` with
-the abstract `Fp`-module specialised to `SWPoint Vesta.curve`: the *abstract-curve* assumption is replaced
-by `Fact VestaOrder` (the published Vesta group order), treated exactly as the field modulus is — a `Fact`,
-kept axiom-free. The three substantive assumptions remain `hbind` (DLR hardness), `hfs` (Fiat–Shamir), and
-`hencodes` (VK-correctness). -/
-theorem orchard_verifier_sound_vesta [Fact VestaOrder]
+/-- **The conditional soundness composition, over the concrete Vesta curve.** This is
+`orchard_verifier_sound_conditional` with the abstract `Fp`-module specialised to `SWPoint Vesta.curve`:
+the *abstract-curve* assumption is replaced by `Fact VestaOrder` (the published Vesta group order), treated
+exactly as the field modulus is — a `Fact`, kept axiom-free. ⚠️ It inherits the **conditional** status of
+`orchard_verifier_sound_conditional` (assumed extraction + constraint identity; `accepts` not tied to the
+fingerprint); see that theorem's docstring and `notes/fv-review-checklist.md`. -/
+theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     (srs : SRS VestaG) (hbind : CommitmentBinding (F := Fp) srs)
     {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
-    {accepts : Prop} (haccepts : accepts) (hfs : FiatShamirSound srs P b v accepts)
+    {accepts : Prop} (haccepts : accepts) (hextract : ExtractableFromAcceptance srs P b v accepts)
     {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
     {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
     S :=
-  orchard_verifier_sound srs hbind haccepts hfs hcon hencodes
+  orchard_verifier_sound_conditional srs hbind haccepts hextract hcon hencodes
 
 end Zcash.Snark
