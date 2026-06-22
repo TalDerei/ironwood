@@ -102,4 +102,19 @@ theorem commitGen_sFun_foldAll (u : List F) (init : F) (g : Fin (2 ^ u.length) �
   | nil => simp [sFun, foldAll, commitGen]
   | cons uⱼ rest ih => rw [sFun_fold, ih, foldAll]
 
+/-- **The deployed `g`-scalars are exactly `[-c] G'₀`** (faithful to halo2 `Guard::use_challenges` +
+`compute_g`). halo2 sets `G'₀ = ⟨compute_s(u, 1), g⟩` (`compute_g`) and `use_challenges` adds
+`compute_s(u, -c)` to the `g`-scalars; here `eval_ipaFold`'s `computeS u (-c)` term equals `(-c) •` the
+folded generator `foldAll u g 0` (which *is* `G'₀ = ⟨compute_s(u,1), g⟩`). So the §1 assembly's generator
+term is precisely the verifier's `[-c] G'₀`. -/
+theorem computeS_gterm_foldAll (u : List F) (c : F) (g : Fin (2 ^ u.length) → G) :
+    (∑ i, (computeS u (-c)).getD i.val 0 • g i) = (-c) • foldAll u g 0 := by
+  rw [gterm_eq, commitGen_sFun_foldAll]
+
+/-- `G'₀ = ⟨compute_s(u,1), g⟩ = foldAll u g 0` (halo2 `compute_g`): the folded generator is the
+`compute_s(·,1)`-weighted SRS sum. -/
+theorem foldAll_eq_compute_g (u : List F) (g : Fin (2 ^ u.length) → G) :
+    foldAll u g 0 = ∑ i, (computeS u 1).getD i.val 0 • g i := by
+  rw [gterm_eq, commitGen_sFun_foldAll, one_smul]
+
 end Zcash.Snark
