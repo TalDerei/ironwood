@@ -125,6 +125,53 @@ theorem deployed_accept_flat [DecidableEq G] [Inhabited G] {shape : Shape} (g : 
   simp only [commitGen, smul_add, Finset.smul_sum, smul_smul, Pi.smul_apply, smul_eq_mul] at haccepts ⊢
   rw [← haccepts]; abel
 
+/-- **O1 closed end-to-end via the AGM route: `DeployedAccepts → IpaRelation`, no posited tree.** Composes
+`deployed_accept_flat` (the §1 glue: `assemble.eval = 0` unfolds to the AGM flat equation) with
+`ipaRelation_of_flat` (the binding split + value extraction). So from the deployed accept of the *real
+assembly* (`assemble.eval = 0`), the prover's AGM representations (`hP`/`hS`/`hRounds`), the augmented binding
+(`hbind`), and the SZ structure (`hSxi` the `ξ`/S-root, `huRounds` the `z`/no-U-interference, `hz`), the IPA
+opening `IpaRelation` is *derived* — the witness `aP` (the multiopen commitment's `g`-rep) opens
+`⟨aP,g⟩` to the multiopen value. No rewinding tree is posited: the structural correspondence is a proof from
+`assemble.eval = 0`. Floor: the AGM representations + augmented binding + SZ. (`hvVec`/`hsvTerm` are the
+structural inner-product values, provable from `compute_b`/`compute_s`; taken as inputs here.) -/
+theorem orchard_verifier_sound_deployed_agm [DecidableEq G] [Inhabited G] {shape : Shape}
+    (g : Fin (2 ^ shape.k) → G) (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) (b : Fin (2 ^ shape.k) → Fp)
+    (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds ipRounds cb : Fp)
+    (hbind : AugmentedBinding (F := Fp) g uu w)
+    (hP : (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).1.eval
+        ⟨shape.k, g, w, uu⟩ = commitGen g aP + pw • w)
+    (hS : ps.ipaS = commitGen g aS + sw • w)
+    (hRounds : (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+        (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum = commitGen g aRounds + uRounds • uu + wRounds • w)
+    (hSxi : innerProduct (ch.xi • aS) b = 0)
+    (hvVec : innerProduct (fun i => ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime
+        (List.ofFn ps.multiopenU) (constructIntermediateSets (assembleQueries vk ps ch))
+        (Msm.zero shape.k Fp G)).2] : List Fp).getD i.val 0) b
+      = -(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2)
+    (hsvTerm : innerProduct (fun i => (computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD (i : ℕ) 0) b = -cb)
+    (hRoundsIP : innerProduct aRounds b = ipRounds)
+    (huConst : (-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z = -(cb * ch.z))
+    (huRounds : uRounds = ch.z * ipRounds) (hz : ch.z ≠ 0)
+    (haccepts : (assemble vk ps ch).eval ⟨shape.k, g, w, uu⟩ = 0) :
+    IpaRelation (⟨shape.k, g, w, uu⟩ : SRS G) (commitGen g aP) b
+      (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2 aP :=
+  ipaRelation_of_flat (⟨shape.k, g, w, uu⟩ : SRS G) b aP (ch.xi • aS) aRounds
+    (fun i => ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+      (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2] : List Fp).getD
+      i.val 0)
+    (fun i => (computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD (i : ℕ) 0)
+    pw (ch.xi * sw) wRounds uRounds
+    ((-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z) (-ps.ipaF)
+    (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+      (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2
+    ipRounds cb ch.z hbind
+    (deployed_accept_flat g w uu vk ps ch aP aS aRounds pw sw uRounds wRounds hP hS hRounds haccepts)
+    hSxi hvVec hsvTerm hRoundsIP huConst huRounds hz
+
 /-- **The deployed verifier's IPA bridge — rewinding PLUS a proven-but-unwired structural correspondence
 (honest scope).** Acceptance yields a *deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying
 `U`/`W`/`S`) for the proof's eval vector `b`, commitment `P` and value `v`. What is genuinely peeled *on the
