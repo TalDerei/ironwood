@@ -21,3 +21,4 @@ import Zcash.Snark.Constraints
 import Zcash.Snark.CommitFold
 import Zcash.Snark.KnowledgeSoundness
 import Zcash.Snark.Main
+import Zcash.Snark.Vesta

@@ -30,8 +30,8 @@ The middle hop is **proven** (modulo the DLR-hardness assumption; the per-node b
 * `hencodes` is the **VK-correctness** workstream (compile the Orchard Action circuit to a verifying key
   and check its constraints encode note ownership / value balance / nullifier integrity), checklist §3.
 
-See `Zcash.Snark.KnowledgeSoundness` for the full assumption list (DLR hardness, Fiat–Shamir, abstract
-Pasta curve, VK-correctness).
+See `Zcash.Snark.KnowledgeSoundness` for the full assumption list (DLR hardness, Fiat–Shamir, Vesta curve
+order, VK-correctness); `Zcash.Snark.Vesta` instantiates this theorem at the concrete Vesta curve.
 -/
 
 namespace Zcash.Snark

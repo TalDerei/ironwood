@@ -31,8 +31,13 @@ This layer is sound **relative to** the following, each kept explicit rather tha
   (the reduction is proven; only the hardness is claimed).
 * **Fiat–Shamir / Blake2b** as a random oracle — the non-interactive challenges are taken from the
   captured transcript (`Zcash.Snark.FiatShamir`); the random-oracle reduction is not formalized.
-* **Pasta curve arithmetic** — the group `G` is abstract (`commit`/`eval` use only its `Fp`-module
-  structure); the curve law is not formalized.
+* **Vesta curve order** — the abstract development runs over any `Fp`-module `G`, but `Zcash.Snark.Vesta`
+  pins it to the *concrete* Vesta curve `SWPoint Vesta.curve` (`y² = x³ + 5`), whose group law is proven
+  (mathlib's elliptic-curve group law, via `WeierstrassCurve.Affine.Point`). The sole residual assumption
+  about the group is its **order** — every point is `p`-torsion (`Fact VestaOrder`, the published Vesta
+  order `p = scalarFieldOrder`), carried exactly like the field modulus `Fact (Nat.Prime p)`. Unlike the
+  field (discharged by a Pratt certificate), the curve order has no point-counting certificate in the
+  library, so it stays an assumption — but axiom-free, as a `Fact` hypothesis.
 * **The verifying key is the correct circuit** (Daira's flow / checklist §3): that the VK's gates encode
   the intended high-level relation (note ownership, value balance, nullifiers) is a *separate* workstream
   — this layer proves the verifier sound *relative to the given VK*, ending at "the witness satisfies the
