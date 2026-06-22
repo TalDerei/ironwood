@@ -1,5 +1,6 @@
 import Mathlib
 import Zcash.Snark.CommitFold
+import Zcash.Snark.Consistency
 
 /-!
 # IPA knowledge soundness: the commitment-soundness of one round (3-special)
@@ -86,5 +87,74 @@ theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
       | linear_combination hl0
       | linear_combination hl2
       | ring
+
+/-- A length-`2^{k+1}` commitment splits over the two halves:
+`commit g a = commit (loHalf g) (loHalf a) + commit (hiHalf g) (hiHalf a)`. The IPA recursion's bridge from
+a round's folded-generator openings back to the parent generators. -/
+theorem commitGen_split {k : ℕ} (g : Fin (2 ^ (k + 1)) → G) (a : Fin (2 ^ (k + 1)) → F) :
+    commitGen g a = commitGen (loHalf g) (loHalf a) + commitGen (hiHalf g) (hiHalf a) := by
+  have e : 2 ^ k + 2 ^ k = 2 ^ (k + 1) := by rw [pow_succ]; ring
+  let φ : Fin (2 ^ k) ⊕ Fin (2 ^ k) ≃ Fin (2 ^ (k + 1)) := finSumFinEquiv.trans (finCongr e)
+  simp only [commitGen]
+  rw [← φ.sum_comp (fun j => a j • g j), Fintype.sum_sum_type]
+  congr 1
+
+/-- The lower half of an `append` is the lower part. -/
+theorem loHalf_append {α : Type*} {k : ℕ} (lo hi : Fin (2 ^ k) → α) : loHalf (append lo hi) = lo := by
+  funext i; simp only [loHalf, append, dif_pos i.isLt]
+
+/-- The upper half of an `append` is the upper part. -/
+theorem hiHalf_append {α : Type*} {k : ℕ} (lo hi : Fin (2 ^ k) → α) : hiHalf (append lo hi) = hi := by
+  funext i
+  have h : ¬ (2 ^ k + i.val < 2 ^ k) := by omega
+  simp only [hiHalf, append, dif_neg h]
+  congr 1; apply Fin.ext; simp
+
+/-- A commitment of an `append` splits over the parent halves:
+`commit g (append a_lo a_hi) = commit (loHalf g) a_lo + commit (hiHalf g) a_hi`. -/
+theorem commitGen_append {k : ℕ} (g : Fin (2 ^ (k + 1)) → G) (a_lo a_hi : Fin (2 ^ k) → F) :
+    commitGen g (append a_lo a_hi) = commitGen (loHalf g) a_lo + commitGen (hiHalf g) a_hi := by
+  rw [commitGen_split, loHalf_append, hiHalf_append]
+
+/-! ## The IPA soundness recursion -/
+
+/-- A **3-ary IPA transcript tree** for `d` rounds. At each round the prover's two cross-commitments
+`L`, `R` (fixed before the challenge) and three sub-transcripts answering three challenges; at a leaf the
+final scalar. The 3-arity is exactly what `ipa_round_commit_sound` consumes (two challenges extract the
+witness, the third pins the commitment). -/
+inductive IpaTree (F G : Type*) : ℕ → Type _ where
+  | leaf : F → IpaTree F G 0
+  | node {d : ℕ} : G → G → F → F → F →
+      IpaTree F G d → IpaTree F G d → IpaTree F G d → IpaTree F G (d + 1)
+
+/-- The IPA verifier **accepts** a transcript tree against generators `g` and commitment `P`: at a leaf,
+the final check `P = [c]·g₀` (`= commit g (const c)`); at a node, the three challenges are distinct and
+nonzero and each sub-transcript opens the verifier's folded commitment `P + uᵢ⁻¹·L + uᵢ·R` against the
+folded generators `foldGens g uᵢ`. This is the verifier's actual recursion (external `P`, prover `L`/`R`),
+the object the soundness peels back. -/
+def IpaAccept : {d : ℕ} → (Fin (2 ^ d) → G) → G → IpaTree F G d → Prop
+  | 0, g, P, .leaf c => P = commitGen g (fun _ => c)
+  | _ + 1, g, P, .node L R u₁ u₂ u₃ t₁ t₂ t₃ =>
+      u₁ ≠ u₂ ∧ u₁ ≠ u₃ ∧ u₂ ≠ u₃ ∧ u₁ ≠ 0 ∧ u₂ ≠ 0 ∧ u₃ ≠ 0 ∧
+        IpaAccept (foldGens g u₁) (P + u₁⁻¹ • L + u₁ • R) t₁ ∧
+        IpaAccept (foldGens g u₂) (P + u₂⁻¹ • L + u₂ • R) t₂ ∧
+        IpaAccept (foldGens g u₃) (P + u₃⁻¹ • L + u₃ • R) t₃
+
+/-- **IPA knowledge soundness — the opening, derived (not assumed).** An accepting transcript tree yields a
+witness opening the commitment: `∃ a, commit g a = P`. By induction on the tree: the leaf gives `a = const c`
+directly; a node takes the three sub-witnesses from the IH, pins the parent commitment with
+`ipa_round_commit_sound`, and reassembles via `commitGen_append`. The whole argument uses **no binding** —
+3-special soundness alone pins the opening. (Binding/DLR enters only for *uniqueness*, `ipaRelation_unique`.) -/
+theorem ipa_sound : {d : ℕ} → (g : Fin (2 ^ d) → G) → (P : G) → (t : IpaTree F G d) →
+    IpaAccept g P t → ∃ a : Fin (2 ^ d) → F, commitGen g a = P
+  | 0, g, P, .leaf c, h => ⟨fun _ => c, h.symm⟩
+  | _ + 1, g, P, .node L R u₁ u₂ u₃ t₁ t₂ t₃, h => by
+      obtain ⟨h12, h13, h23, hu₁, hu₂, hu₃, ha₁, ha₂, ha₃⟩ := h
+      obtain ⟨c₁, hc₁⟩ := ipa_sound (foldGens g u₁) _ t₁ ha₁
+      obtain ⟨c₂, hc₂⟩ := ipa_sound (foldGens g u₂) _ t₂ ha₂
+      obtain ⟨c₃, hc₃⟩ := ipa_sound (foldGens g u₃) _ t₃ ha₃
+      obtain ⟨a_lo, a_hi, hP⟩ := ipa_round_commit_sound (loHalf g) (hiHalf g) P L R c₁ c₂ c₃
+        u₁ u₂ u₃ h12 h13 h23 hu₁ hu₂ hu₃ hc₁ hc₂ hc₃
+      exact ⟨append a_lo a_hi, by rw [commitGen_append]; exact hP⟩
 
 end Zcash.Snark
