@@ -30,11 +30,32 @@ inductive CommitmentRef (k : ℕ) (F G : Type*) where
   | msm : Msm k F G → CommitmentRef k F G
   deriving DecidableEq
 
-/-- A multiopen query (halo2 `VerifierQuery`): open `commitment` at `point`, claiming the value `eval`. -/
+/-- A commitment's **slot identity** — which commitment *object* it is, independent of its curve value.
+This models halo2's pointer identity (`construct_intermediate_sets` keys by `std::ptr::eq`): the multiopen
+grouping must treat two distinct proof/VK slots as distinct even if their curve values coincide, which a
+value-equality key (`DecidableEq G`) would wrongly merge. Each constructor names a commitment source with
+its structural indices (proof, column / set / lookup index). -/
+inductive CommitmentId where
+  | instanceCol : ℕ → ℕ → CommitmentId
+  | adviceCol : ℕ → ℕ → CommitmentId
+  | fixedCol : ℕ → CommitmentId
+  | permProduct : ℕ → ℕ → CommitmentId
+  | lookupProduct : ℕ → ℕ → CommitmentId
+  | lookupPermInput : ℕ → ℕ → CommitmentId
+  | lookupPermTable : ℕ → ℕ → CommitmentId
+  | permCommon : ℕ → CommitmentId
+  | vanishingH : CommitmentId
+  | randomPoly : CommitmentId
+  deriving DecidableEq
+
+/-- A multiopen query (halo2 `VerifierQuery`): open `commitment` at `point`, claiming the value `eval`.
+`commId` is the commitment's slot identity, used as the multiopen grouping key (halo2's pointer identity)
+rather than the curve value `commitment`. -/
 structure VerifierQuery (k : ℕ) (F G : Type*) where
   point : F
   commitment : CommitmentRef k F G
   eval : F
+  commId : CommitmentId
 
 /-- The vanishing argument's `h` commitment (halo2 `vanishing/verifier.rs`): fold the quotient pieces by
 `xⁿ` into `Σᵢ hᵢ · (xⁿ)ⁱ`, built as the Rust does — scale the accumulator by `xⁿ` and append the next

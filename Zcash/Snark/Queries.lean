@@ -39,44 +39,53 @@ layout entry `(columnIndex, rotation)` paired with its claimed evaluation, open 
 at `rotate_omega x rotation`. `commitment` resolves a column index to its commitment; `layout` is the
 VK-fixed `(column, rotation)` list, zipped with the read evaluations. -/
 def columnQueries {k : ℕ} {F G : Type*} [Field F] (omega x : F) (commitment : ℕ → G)
-    (layout : List (ℕ × ℤ)) (evals : List F) : List (VerifierQuery k F G) :=
+    (mkId : ℕ → CommitmentId) (layout : List (ℕ × ℤ)) (evals : List F) : List (VerifierQuery k F G) :=
   (layout.zip evals).map fun e =>
-    { point := rotateOmega omega x e.1.2, commitment := .point (commitment e.1.1), eval := e.2 }
+    { point := rotateOmega omega x e.1.2, commitment := .point (commitment e.1.1), eval := e.2,
+      commId := mkId e.1.1 }
 
 /-- Permutation product queries (halo2 `permutation/verifier.rs`): open each set's product commitment
 at `x` and `ω x` (`xNext`), and — for every set except the last (`rev().skip(1)`) — at `ω^{last} x`
 (`xLast`). `sets` pairs each product commitment with its `PermSetEval`. -/
-def permutationQueries {k : ℕ} {F G : Type*} [Field F] (x xNext xLast : F)
+def permutationQueries {k : ℕ} {F G : Type*} [Field F] (x xNext xLast : F) (mkId : ℕ → CommitmentId)
     (sets : List (G × PermSetEval F)) : List (VerifierQuery k F G) :=
-  (sets.flatMap fun s =>
-      [{ point := x, commitment := .point s.1, eval := s.2.eval },
-       { point := xNext, commitment := .point s.1, eval := s.2.nextEval }])
-    ++ (sets.reverse.drop 1).filterMap fun s =>
-      s.2.lastEval.map fun le => { point := xLast, commitment := .point s.1, eval := le }
+  let indexed := sets.zip (List.range sets.length)
+  (indexed.flatMap fun s =>
+      [{ point := x, commitment := .point s.1.1, eval := s.1.2.eval, commId := mkId s.2 },
+       { point := xNext, commitment := .point s.1.1, eval := s.1.2.nextEval, commId := mkId s.2 }])
+    ++ (indexed.reverse.drop 1).filterMap fun s =>
+      s.1.2.lastEval.map fun le =>
+        { point := xLast, commitment := .point s.1.1, eval := le, commId := mkId s.2 }
 
 /-- Lookup queries (halo2 `lookup/verifier.rs`): open the product at `x` and `ω x` (`xNext`), the
 permuted input at `x` and `ω⁻¹ x` (`xInv`), and the permuted table at `x`. `lookups` pairs each
 lookup's commitments with its `LookupEval`. -/
 def lookupQueries {k : ℕ} {F G : Type*} [Field F] (x xInv xNext : F)
+    (mkProduct mkInput mkTable : ℕ → CommitmentId)
     (lookups : List (LookupCommitments G × LookupEval F)) : List (VerifierQuery k F G) :=
-  lookups.flatMap fun l =>
-    [{ point := x, commitment := .point l.1.product, eval := l.2.productEval },
-     { point := x, commitment := .point l.1.permutedInput, eval := l.2.permutedInputEval },
-     { point := x, commitment := .point l.1.permutedTable, eval := l.2.permutedTableEval },
-     { point := xInv, commitment := .point l.1.permutedInput, eval := l.2.permutedInputInvEval },
-     { point := xNext, commitment := .point l.1.product, eval := l.2.productNextEval }]
+  (lookups.zip (List.range lookups.length)).flatMap fun l =>
+    [{ point := x, commitment := .point l.1.1.product, eval := l.1.2.productEval, commId := mkProduct l.2 },
+     { point := x, commitment := .point l.1.1.permutedInput, eval := l.1.2.permutedInputEval,
+       commId := mkInput l.2 },
+     { point := x, commitment := .point l.1.1.permutedTable, eval := l.1.2.permutedTableEval,
+       commId := mkTable l.2 },
+     { point := xInv, commitment := .point l.1.1.permutedInput, eval := l.1.2.permutedInputInvEval,
+       commId := mkInput l.2 },
+     { point := xNext, commitment := .point l.1.1.product, eval := l.1.2.productNextEval,
+       commId := mkProduct l.2 }]
 
 /-- Common permutation queries (halo2 `permutation/verifier.rs` `CommonEvaluated::queries`): open each
 common permutation commitment at `x` to its evaluation. -/
-def permutationCommonQueries {k : ℕ} {F G : Type*} [Field F] (x : F)
+def permutationCommonQueries {k : ℕ} {F G : Type*} [Field F] (x : F) (mkId : ℕ → CommitmentId)
     (commsEvals : List (G × F)) : List (VerifierQuery k F G) :=
-  commsEvals.map fun ce => { point := x, commitment := .point ce.1, eval := ce.2 }
+  (commsEvals.zip (List.range commsEvals.length)).map fun ce =>
+    { point := x, commitment := .point ce.1.1, eval := ce.1.2, commId := mkId ce.2 }
 
 /-- Vanishing argument queries (halo2 `vanishing/verifier.rs`): open the folded `h` commitment (an MSM)
 at `x` to `expectedHEval`, and the random-poly commitment at `x` to `randomEval`. -/
 def vanishingQueries {k : ℕ} {F G : Type*} [Field F] (x : F) (hCommitment : Msm k F G)
     (expectedHEval : F) (randomPolyCommitment : G) (randomEval : F) : List (VerifierQuery k F G) :=
-  [{ point := x, commitment := .msm hCommitment, eval := expectedHEval },
-   { point := x, commitment := .point randomPolyCommitment, eval := randomEval }]
+  [{ point := x, commitment := .msm hCommitment, eval := expectedHEval, commId := .vanishingH },
+   { point := x, commitment := .point randomPolyCommitment, eval := randomEval, commId := .randomPoly }]
 
 end Zcash.Snark

@@ -137,16 +137,19 @@ def assembleQueries {shape : Shape} {F G : Type*} [Field F] [Inhabited G] (vk : 
   let eHEval := expectedHEval exprs ch.y xn
   let hComm := vanishingHCommitment shape.k xn (List.ofFn ps.hPieces)
   let perProof := (List.ofFn (fun p =>
-    columnQueries vk.omega x (vk.instanceCommitment p) vk.instanceQueryLayout (List.ofFn (ps.instanceEvals p))
-    ++ columnQueries vk.omega x (finFnG (ps.adviceCommitments p)) vk.adviceQueryLayout
-        (List.ofFn (ps.adviceEvals p))
-    ++ permutationQueries x xNext xLast
+    columnQueries vk.omega x (vk.instanceCommitment p) (CommitmentId.instanceCol p)
+        vk.instanceQueryLayout (List.ofFn (ps.instanceEvals p))
+    ++ columnQueries vk.omega x (finFnG (ps.adviceCommitments p)) (CommitmentId.adviceCol p)
+        vk.adviceQueryLayout (List.ofFn (ps.adviceEvals p))
+    ++ permutationQueries x xNext xLast (CommitmentId.permProduct p)
         (List.ofFn (fun s => (ps.permutationProduct p s, ps.permutationSetEvals p s)))
-    ++ lookupQueries x xInv xNext (List.ofFn (fun l =>
+    ++ lookupQueries x xInv xNext (CommitmentId.lookupProduct p) (CommitmentId.lookupPermInput p)
+        (CommitmentId.lookupPermTable p) (List.ofFn (fun l =>
         ({ product := ps.lookupProduct p l, permutedInput := ps.lookupPermutedInput p l,
            permutedTable := ps.lookupPermutedTable p l }, ps.lookupEvals p l))))).flatten
-  let fixedQ := columnQueries vk.omega x vk.fixedCommitment vk.fixedQueryLayout (List.ofFn ps.fixedEvals)
-  let permCommonQ := permutationCommonQueries x
+  let fixedQ := columnQueries vk.omega x vk.fixedCommitment CommitmentId.fixedCol vk.fixedQueryLayout
+    (List.ofFn ps.fixedEvals)
+  let permCommonQ := permutationCommonQueries x CommitmentId.permCommon
     (List.ofFn (fun c => (vk.permutationCommonCommitment c, ps.permutationCommonEvals c)))
   let vanishingQ := vanishingQueries x hComm eHEval ps.vanishingRandom ps.vanishingRandomEval
   perProof ++ fixedQ ++ permCommonQ ++ vanishingQ
@@ -202,33 +205,30 @@ each with its evaluation vector over the set's points, plus the set's points.
 
 The conflicting-eval guard (halo2's `None`) is omitted: the audit established it is unreachable for a
 well-formed verifying key (a defensive invariant on the verifier's own bookkeeping, not prover data).
-Commitments are grouped by value equality, which coincides with halo2's pointer identity whenever
-distinct commitments have distinct values — always the case for a real proof. -/
--- TODO(F1, identity-keying): group commitments by per-slot *identity*, not curve value. Halo2's
--- `construct_intermediate_sets` keys by `std::ptr::eq`/`ptr::hash`; an adversarial prover can submit two
--- distinct commitment slots with equal point values, which Rust keeps separate but this `DecidableEq G`
--- grouping would merge. Fix: thread a unique slot id through `VerifierQuery` / `assembleQueries` and group
--- by it. Full closure also needs the Rust dumper to emit per-slot ids and the fixture regenerated (the
--- companion forks) so the CI-built `fingerprint_matches` still holds. Tracked as F1 in
--- notes/fv-review-checklist.md.
+Commitments are grouped by their **slot identity** (`VerifierQuery.commId`), matching halo2's pointer
+identity (`construct_intermediate_sets` keys by `std::ptr::eq`) — so two distinct slots with equal curve
+values stay distinct, which a value-equality key would wrongly merge (closing review item F1). The curve
+value (`CommitmentRef`) is still what each group contributes to the MSM. -/
 def constructIntermediateSets {k : ℕ} {F G : Type*} [DecidableEq F] [DecidableEq G]
     (queries : List (VerifierQuery k F G)) : MultiopenGrouped k F G :=
   -- distinct points, in first-appearance order; `pointIdx p` is `p`'s index in that order
   let points : List F :=
     queries.foldl (fun acc q => if q.point ∈ acc then acc else acc ++ [q.point]) []
   let pointIdx : F → ℕ := fun p => points.findIdx (fun x => decide (x = p))
-  -- distinct commitments, in first-appearance order (halo2 `IndexMap` insertion order)
-  let comms : List (CommitmentRef k F G) :=
-    queries.foldl (fun acc q => if q.commitment ∈ acc then acc else acc ++ [q.commitment]) []
+  -- distinct commitments by slot identity (`commId`), in first-appearance order (halo2 `IndexMap` by
+  -- pointer identity); the paired `CommitmentRef` is the curve value the group contributes to the MSM
+  let comms : List (CommitmentId × CommitmentRef k F G) :=
+    queries.foldl (fun acc q => if acc.any (fun c => decide (c.1 = q.commId)) then acc
+      else acc ++ [(q.commId, q.commitment)]) []
   -- per commitment: its ascending point-index set, and its eval vector over that set
   let commData : List (CommitmentRef k F G × List ℕ × List F) :=
     comms.map fun c =>
-      let qs := queries.filter fun q => decide (q.commitment = c)
+      let qs := queries.filter fun q => decide (q.commId = c.1)
       let idxs := qs.map fun q => pointIdx q.point
       let idxSet := (List.range points.length).filter fun i => idxs.contains i
       let evals := idxSet.filterMap fun i =>
         (qs.find? fun q => decide (pointIdx q.point = i)).map (·.eval)
-      (c, idxSet, evals)
+      (c.2, idxSet, evals)
   -- distinct point-index sets, first-appearance order (over commitments) → set index
   let setList : List (List ℕ) :=
     commData.foldl (fun acc cd => if cd.2.1 ∈ acc then acc else acc ++ [cd.2.1]) []
