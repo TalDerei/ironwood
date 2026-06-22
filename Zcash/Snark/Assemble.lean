@@ -222,6 +222,29 @@ def assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] (ps : ProofString s
   ipaFold ch.x3 opened.2 ps.ipaC ps.ipaF ch.xi ch.z (List.ofFn ch.ipaRound) ps.ipaS
     (List.ofFn ps.ipaRounds) opened.1
 
+/-- **The assembled fingerprint MSM evaluates to the verifier's IPA verification equation.** Composing
+`eval_ipaFold` over `assembleFinalMsm = ipaFold … (assembleOpening …).1`: the deployed MSM's evaluation is
+the multiopen commitment `(assembleOpening …).1` opened by the IPA — `[-v]` at `g₀`, `[ξ] S`, the per-round
+`[uⱼ⁻¹] Lⱼ + [uⱼ] Rⱼ`, `[-c·b·z] U`, `[-f] W`, and `[-c]` times the folded generators (`computeS`). So the
+deployed accept (`… = 0`) *is* this verification equation. The SRS is built from `g, w, u`, so its `k` is
+`shape.k` definitionally — no transport needed. This puts `eval_ipaFold` on the soundness path. -/
+theorem eval_assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (g : Fin (2 ^ shape.k) → G) (w u : G) (ps : ProofString shape F G) (ch : Challenges shape.k F)
+    (grouped : MultiopenGrouped shape.k F G) :
+    (assembleFinalMsm ps ch grouped).eval ⟨shape.k, g, w, u⟩
+      = (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU) grouped
+            (Msm.zero shape.k F G)).1.eval ⟨shape.k, g, w, u⟩
+        + (∑ i, ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+            grouped (Msm.zero shape.k F G)).2].getD i.val 0) • g i)
+        + ch.xi • ps.ipaS
+        + (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+            (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum
+        + (-ps.ipaC * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z) • u
+        + (-ps.ipaF) • w
+        + (∑ i, ((computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD i.val 0) • g i) := by
+  simp only [assembleFinalMsm]
+  rw [eval_ipaFold]
+
 /-- Re-derivation of halo2 `construct_intermediate_sets` (`poly/multiopen.rs`): group the flat opening
 queries into point sets, producing the `MultiopenGrouped` that `assembleOpening` consumes — so the
 grouping is derived in Lean rather than supplied. Point indices and commitment order follow first
