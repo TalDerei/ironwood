@@ -2,6 +2,7 @@ import Mathlib
 import Zcash.Snark.KnowledgeSoundness
 import Zcash.Snark.Assemble
 import Zcash.Snark.Consistency
+import Zcash.Snark.IpaSoundness
 
 /-!
 # Soundness composition — CONDITIONAL, not yet completed (§2, in progress)
@@ -157,5 +158,55 @@ theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {sha
     S := by
   obtain ⟨wt, haccept, hopen, hsat⟩ := hbridge haccepts
   exact orchard_sound_via_transcript srs wt haccept hopen hsat (hencodes (extract wt.toTree))
+
+/-! ## C1 closed: `IpaRelation` is derived from the transcript tree, not assumed
+
+`Zcash.Snark.ipa_soundV` derives the *full* opening relation — `commit g a = P` **and** `⟨a,b⟩ = v` — from
+an accepting IPA transcript tree (`IpaAcceptV`), binding-free, by 3-special soundness. So the bridge no
+longer needs to *assume* `IpaRelation`: it only needs to supply the accepting **tree** (the genuine
+Fiat–Shamir/special-soundness rewinding — `accept → ∃ tree`), which is the irreducible standard-model
+assumption and nothing more. This removes the `IpaRelation` conjunct from the bridge (review item C1). -/
+
+/-- `IpaAcceptV` over the SRS generators derives the existing `IpaRelation`: the witness `ipa_soundV`
+extracts opens `P` (`commit srs a = commitGen srs.g a`) and gives the inner product
+(`commitGen b a = ⟨a,b⟩`). The IPA opening is now *derived*, not assumed. -/
+theorem ipaRelation_of_acceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G) (v : Fp)
+    (t : IpaTreeV Fp G srs.k) (h : IpaAcceptV srs.g b P v t) :
+    ∃ a, IpaRelation srs P b v a := by
+  obtain ⟨a, hP, hv⟩ := ipa_soundV srs.g b P v t h
+  refine ⟨a, hP, ?_⟩
+  have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
+  rw [hib]; exact hv
+
+/-- **The minimal Fiat–Shamir bridge: just the accepting transcript tree.** Unlike
+`ExtractableFromDeployedAccept`, this assumes *only* that acceptance yields an `IpaAcceptV` tree — the
+special-soundness rewinding — and nothing about `IpaRelation` (which `ipa_soundV` derives). This is the
+irreducible standard-model assumption, isolated. -/
+def FiatShamirTree (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G) (v : Fp) (accepts : Prop) : Prop :=
+  accepts → ∃ t : IpaTreeV Fp G srs.k, IpaAcceptV srs.g b P v t
+
+/-- **The deployed Orchard verifier is sound — C1 closed.** From the deployed accept
+(`assemble.eval = 0`), the minimal Fiat–Shamir bridge `hFS` (acceptance yields the transcript tree —
+the *only* IPA assumption), and the circuit-satisfaction of the opening (`hcirc`, the constraint side /
+checklist C3, dischargeable by `circuitSatViaGates_of_check`), conclude `S`.
+
+The IPA opening (`IpaRelation`) is **derived** here via `ipaRelation_of_acceptV`/`ipa_soundV` — it is no
+longer assumed (contrast `orchard_verifier_sound_deployed_final`, whose bridge bundled it). What the bridge
+supplies is exactly the special-soundness rewinding (`accept → ∃ tree`); everything from the tree to
+`IpaRelation` is proven, binding-free. The remaining named assumptions are the standard ones: the rewinding
+(`hFS`), the circuit/constraint side (`hcirc`, C3), DLR hardness (for *uniqueness*, unused on this path),
+and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_deployed_C1 [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hFS : FiatShamirTree srs b P v (DeployedAccepts srs hk vk ps ch))
+    (hcirc : ∀ a, IpaRelation srs P b v a → circuitSat a)
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
+    S := by
+  obtain ⟨t, ht⟩ := hFS haccepts
+  obtain ⟨a, hrel⟩ := ipaRelation_of_acceptV srs b P v t ht
+  exact hencodes a ⟨hrel, hcirc a hrel⟩
 
 end Zcash.Snark
