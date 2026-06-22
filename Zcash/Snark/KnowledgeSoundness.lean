@@ -58,32 +58,44 @@ open Polynomial
 variable {G : Type*} [AddCommGroup G] [Module Fp G]
 
 /-- The relation the SNARK proves: the witness `a` **opens** the commitment `P` to the value `v`
-(`IpaRelation`), and the committed polynomials **satisfy** the circuit's quotient identity
-`numerator = h · (Xⁿ − 1)` (the gate/permutation/lookup constraints hold as polynomials).
-
-⚠️ Currently `numerator/h/n` are **free of `a`** — the two conjuncts share no variable — so this does not
-yet state "the *extracted* witness satisfies the circuit." Tying `numerator` to `a` via
-`combineGates`/`Expr.toPoly` is checklist C2 (`notes/fv-review-checklist.md`). -/
+(`IpaRelation`) **and** satisfies the circuit (`circuitSat a`). Both conjuncts are now about the *same*
+extracted witness `a` (fixing the earlier flaw where the constraint was on free, unrelated polynomials).
+`circuitSat` is the circuit-satisfaction predicate — its intended instantiation is `circuitSatViaGates`
+("the witness's decoded columns satisfy the `y`-combined gates"). The remaining gap (C1-full/C3) is
+*deriving* `circuitSat a` for the extracted `a` from the deployed constraint check
+(`constraint_identity_of_accept`) through the multiopen decode. -/
 structure SnarkRelation (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
-    (numerator h : Polynomial Fp) (n : ℕ) (a : Fin (2 ^ srs.k) → Fp) : Prop where
+    (circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop) (a : Fin (2 ^ srs.k) → Fp) : Prop where
   opens : IpaRelation srs P b v a
-  constraintsHold : numerator = h * (X ^ n - 1)
+  satisfiesCircuit : circuitSat a
+
+/-- The intended concrete instantiation of `SnarkRelation.circuitSat`: the witness's **decoded columns**
+satisfy the `y`-combined gates' quotient identity. `decodeAdvice`/`decodeInstance` map the IPA witness to
+the circuit's column polynomials (the multiopen decode — abstract until the assembly is modeled), and
+`combineGates` is the `y`-combination of the gate `Expr`s (`eval_combineGates`). So
+`circuitSat := circuitSatViaGates …` reads "the extracted witness satisfies the circuit's constraints",
+and `constraint_identity_of_accept` is what would discharge it from the deployed check. -/
+def circuitSatViaGates {k : ℕ} (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin (2 ^ k) → Fp) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ)
+    (a : Fin (2 ^ k) → Fp) : Prop :=
+  combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates = hpoly * (X ^ deg - 1)
 
 /-- **Knowledge soundness (modulo its hypotheses).** *Given* a consistent transcript tree `t` for `a`
-(`hcons`), the opening (`hopen`), and the constraint identity (`hcon`), the extractor recovers the
+(`hcons`), the opening (`hopen`), and circuit-satisfaction of `a` (`hsat`), the extractor recovers the
 **unique** witness satisfying `SnarkRelation`. Composes `extract_correct` (extraction) and
 `ipaRelation_unique` (uniqueness under DLR hardness).
 
-⚠️ The hypotheses `hcons` and `hcon` are **assumed** here, not derived from acceptance — deriving them
-(via `accepting_fold_eq` + `commitGen_round`, and `quotientCheck_sound` off the `d/p` bad set) is the open
-composition work (checklist C2/C3). -/
+⚠️ The hypotheses `hcons` and `hsat` are **assumed** here, not derived from acceptance — deriving them
+(via `accepting_fold_eq` + `commitGen_round`, and `constraint_identity_of_accept` off the `d/p` bad set
+through the multiopen decode) is the open composition work (checklist C1-full/C3). -/
 theorem knowledge_sound (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
     {t : Tree Fp srs.k} {a : Fin (2 ^ srs.k) → Fp} (hcons : Consistent t a)
     {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} (hopen : IpaRelation srs P b v a)
-    {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (X ^ n - 1)) :
-    extract t = a ∧ SnarkRelation srs P b v numerator h n a
+    {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop} (hsat : circuitSat a) :
+    extract t = a ∧ SnarkRelation srs P b v circuitSat a
       ∧ ∀ a', IpaRelation srs P b v a' → a' = a :=
-  ⟨extract_correct t a hcons, ⟨hopen, hcon⟩, fun _ h' => ipaRelation_unique hbind h' hopen⟩
+  ⟨extract_correct t a hcons, ⟨hopen, hsat⟩, fun _ h' => ipaRelation_unique hbind h' hopen⟩
 
 /-- The residual **soundness error** of the constraint layer (re-export of `quotientCheck_sound`): a
 committed-polynomial set that violates the constraint identity is accepted for at most a `deg / |F|`

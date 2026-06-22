@@ -14,9 +14,10 @@ overclaiming. The gaps (tracked in `notes/fv-review-checklist.md`):
 * `ExtractableFromAcceptance` assumes the **IPA knowledge-soundness conclusion** (a consistent transcript
   tree + a valid opening) — i.e. it bundles Fiat–Shamir *and* the extraction that `accepting_fold_eq` /
   `extract_correct` were meant to prove, so those proven lemmas are **off this path** (C3).
-* the constraint identity `hcon` is a hypothesis (not derived via `quotientCheck_sound`), and
-  `numerator/h/n` are not tied to the witness `a`, so `SnarkRelation` does not yet state "the extracted
-  witness satisfies the circuit" (C2).
+* `SnarkRelation` now ties both conjuncts to the *same* witness `a` (opens `P` **and** `circuitSat a`) —
+  C2 done; but `circuitSat a` is currently supplied by `ExtractableFromAcceptance` (assumed), not
+  *derived* from the deployed constraint check via `constraint_identity_of_accept` and the multiopen
+  decode (C3, open).
 * `hbind` (DLR hardness) is passed to `knowledge_sound` but only feeds its uniqueness conjunct, which this
   proof discards — so binding is currently inert on the path to `S`.
 
@@ -35,28 +36,37 @@ variable {G : Type*} [AddCommGroup G] [Module Fp G]
 knowledge-soundness *conclusion* that `accepting_fold_eq` / `extract_correct` were meant to produce,
 bundled with Fiat–Shamir. Honest reading: "assume IPA knowledge soundness + FS," not "hand-wave only FS."
 Splitting this into the genuine FS step (`accept → ∃ tree`) and the proven extraction — so the residual
-assumption narrows to "challenges are uniform and unpredictable" — is open §2 work (checklist C3). -/
+assumption narrows to "challenges are uniform and unpredictable" — is open §2 work (checklist C3). It now
+also bundles `circuitSat a` (the extracted witness satisfies the circuit); deriving that from the deployed
+constraint check rather than assuming it is likewise open (C3). -/
 def ExtractableFromAcceptance (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
-    (accepts : Prop) : Prop :=
+    (circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop) (accepts : Prop) : Prop :=
   accepts → ∃ (t : Tree Fp srs.k) (a : Fin (2 ^ srs.k) → Fp),
-    Consistent t a ∧ IpaRelation srs P b v a
+    Consistent t a ∧ IpaRelation srs P b v a ∧ circuitSat a
 
+-- TODO(Step 4 / semantic adequacy): `hencodes`/`S` below are the seam from circuit-satisfiability to the
+-- high-level Orchard relation. Currently `S` is a free `Prop` and `hencodes` is an assumed hypothesis, so
+-- the chain stops at "the extracted witness satisfies the gates" (`SnarkRelation`) and never reaches
+-- "…therefore a valid Orchard action" (note well-formed, value balances, nullifier correctly derived,
+-- spend authorized). Closing it: instantiate `S` to the concrete Orchard statement and *prove* `hencodes`.
+-- Beyond §2 (C1–C3 only reach `SnarkRelation`); the output-side dual of the input-side VK-correctness gap
+-- (see `Assemble.lean`). Large; not started.
 /-- **Conditional soundness composition (NOT completed soundness).** From the *assumed* extraction data
-(`hextract haccepts`) and the *assumed* constraint identity (`hcon`), conclude `S` via `hencodes`.
+(`hextract haccepts` — which now also yields `circuitSat a`), conclude `S` via `hencodes`.
 
-⚠️ This assumes what §2 should prove: `accepts` is opaque (not the fingerprint MSM); the extraction is
-assumed (so `accepting_fold_eq` / `extract_correct` are off-path); `hcon` is assumed (so
-`quotientCheck_sound` is unused) and untied to the witness; and `hbind`'s binding only feeds the discarded
-uniqueness conjunct. It is the scaffold for the composition, not the composition — see the module
-docstring and `notes/fv-review-checklist.md`. -/
+⚠️ This assumes what §2 should prove: `accepts` is opaque (the `_deployed` variant fixes that); the
+extraction + circuit-satisfaction are assumed (so `accepting_fold_eq` / `extract_correct` /
+`constraint_identity_of_accept` are off-path); and `hbind`'s binding only feeds the discarded uniqueness
+conjunct. It is the scaffold for the composition, not the composition — see the module docstring and
+`notes/fv-review-checklist.md`. -/
 theorem orchard_verifier_sound_conditional (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
-    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
-    {accepts : Prop} (haccepts : accepts) (hextract : ExtractableFromAcceptance srs P b v accepts)
-    {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
-    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
+    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    {accepts : Prop} (haccepts : accepts)
+    (hextract : ExtractableFromAcceptance srs P b v circuitSat accepts)
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S := by
-  obtain ⟨t, a, hcons, hopen⟩ := hextract haccepts
-  exact hencodes a (knowledge_sound srs hbind hcons hopen hcon).2.1
+  obtain ⟨t, a, hcons, hopen, hsat⟩ := hextract haccepts
+  exact hencodes a (knowledge_sound srs hbind hcons hopen hsat).2.1
 
 /-- The deployed verifier's **accept condition**, as a concrete predicate: the assembled fingerprint MSM
 `assemble vk ps ch` (the §1 object) evaluates to the group identity against the SRS. This is what
@@ -79,12 +89,11 @@ MSM to the opening. -/
 theorem orchard_verifier_sound_deployed [DecidableEq G] [Inhabited G] {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp) (hbind : CommitmentBinding (F := Fp) srs)
-    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
     (haccepts : DeployedAccepts srs hk vk ps ch)
-    (hextract : ExtractableFromAcceptance srs P b v (DeployedAccepts srs hk vk ps ch))
-    {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
-    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
+    (hextract : ExtractableFromAcceptance srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S :=
-  orchard_verifier_sound_conditional srs hbind haccepts hextract hcon hencodes
+  orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
 
 end Zcash.Snark

@@ -47,11 +47,11 @@ exactly as the field modulus is — a `Fact`, kept axiom-free. ⚠️ It inherit
 fingerprint); see that theorem's docstring and `notes/fv-review-checklist.md`. -/
 theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     (srs : SRS VestaG) (hbind : CommitmentBinding (F := Fp) srs)
-    {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
-    {accepts : Prop} (haccepts : accepts) (hextract : ExtractableFromAcceptance srs P b v accepts)
-    {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
-    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
+    {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    {accepts : Prop} (haccepts : accepts)
+    (hextract : ExtractableFromAcceptance srs P b v circuitSat accepts)
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S :=
-  orchard_verifier_sound_conditional srs hbind haccepts hextract hcon hencodes
+  orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
 
 end Zcash.Snark
