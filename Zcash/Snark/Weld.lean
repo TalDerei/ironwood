@@ -71,6 +71,28 @@ theorem ipaRelation_of_deployedAcceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp
   · have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
     rw [hib]; exact hv
 
+/-- **`IpaRelation` derived directly from the flat verification equation (O1, AGM route — no posited tree).**
+Composes `deployed_flat_split` (the augmented binding reads `assemble.eval = 0` off as the g/U/W relations)
+with `deployed_open_value` (the value `⟨aP,b⟩ = v` from those relations + the SZ structure). The witness is
+`aP`, the multiopen commitment's `g`-representation; it opens the pure-`g` commitment `⟨aP, g⟩` (the
+multiopen commitment modulo its `W`-blinding, which `IpaRelation` abstracts) to the value `v`. Unlike the
+rewinding bridge, this is a *proof from* the flat equation — the structural correspondence is wired, the floor
+is the AGM representations + the augmented binding + the SZ challenge exclusions. -/
+theorem ipaRelation_of_flat (srs : SRS G) (b aP aSxi aRounds vVec svTerm : Fin (2 ^ srs.k) → Fp)
+    (pw swxi wRounds uRounds uConst wConst v ipRounds cb z : Fp)
+    (hbind : AugmentedBinding (F := Fp) srs.g srs.u srs.w)
+    (hflat : commitGen srs.g aP + pw • srs.w + (commitGen srs.g aSxi + swxi • srs.w)
+        + (commitGen srs.g aRounds + uRounds • srs.u + wRounds • srs.w) + commitGen srs.g vVec
+        + uConst • srs.u + wConst • srs.w + commitGen srs.g svTerm = 0)
+    (hSxi : innerProduct aSxi b = 0) (hvVec : innerProduct vVec b = -v)
+    (hsvTerm : innerProduct svTerm b = -cb) (hRounds : innerProduct aRounds b = ipRounds)
+    (huConst : uConst = -(cb * z)) (huRounds : uRounds = z * ipRounds) (hz : z ≠ 0) :
+    IpaRelation srs (commitGen srs.g aP) b v aP := by
+  obtain ⟨hg, hu, _⟩ := deployed_flat_split hbind aP aSxi aRounds vVec svTerm pw swxi wRounds
+    uRounds uConst wConst hflat
+  exact ⟨commit_eq_commitGen srs aP, deployed_open_value b aP aSxi aRounds vVec svTerm uRounds uConst
+    v ipRounds cb z hg hu hSxi hvVec hsvTerm hRounds huConst huRounds hz⟩
+
 /-- **The deployed verifier's IPA bridge — rewinding PLUS a proven-but-unwired structural correspondence
 (honest scope).** Acceptance yields a *deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying
 `U`/`W`/`S`) for the proof's eval vector `b`, commitment `P` and value `v`. What is genuinely peeled *on the
