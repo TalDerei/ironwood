@@ -53,6 +53,70 @@ theorem AugmentedBinding.separate {n : ℕ} {g : Fin n → G} {U W : G} (h : Aug
   obtain ⟨ha, hα, hβ⟩ := h _ _ _ hz
   exact ⟨sub_eq_zero.mp ha, sub_eq_zero.mp hα, sub_eq_zero.mp hβ⟩
 
+/-- **The deployed flat verification equation splits into its `g`/`U`/`W` relations — derived from
+`assemble.eval = 0`, no posited tree (O1, AGM route).** With the prover's group elements given via their AGM
+representations over `(g, U, W)` — the multiopen commitment `commitGen g aP + pw•W`, the blinding poly
+`commitGen g aSxi + swxi•W` (the `ξ`-scaled `S`), the round total `commitGen g aRounds + uRounds•U + wRounds•W`,
+the `[-v]g₀` term `commitGen g vVec`, the `[-c·b·z]U` and `[-f]W` constants, and the folded generator
+`commitGen g svTerm` (`= [-c]·G'₀`, via `foldAll = commitGen g (sFun u 1)`) — the augmented binding reads
+`assemble.eval = 0` off as three independent identities: the `g`-relation (the opening constraint), the
+`U`-relation (the value/inner-product binding), and the `W`-relation (blinding). This is exactly the
+MSM↔structured-checks connection review flagged as missing: it is now a *proof from* `assemble.eval = 0`,
+not a posited bridge. Floor: the AGM representations + the augmented binding. -/
+theorem deployed_flat_split {k : ℕ} {g : Fin (2 ^ k) → G} {U W : G}
+    (hbind : AugmentedBinding (F := F) g U W)
+    (aP aSxi aRounds vVec svTerm : Fin (2 ^ k) → F)
+    (pw swxi wRounds uRounds uConst wConst : F)
+    (hflat : commitGen g aP + pw • W
+        + (commitGen g aSxi + swxi • W)
+        + (commitGen g aRounds + uRounds • U + wRounds • W)
+        + commitGen g vVec
+        + uConst • U + wConst • W
+        + commitGen g svTerm = 0) :
+    aP + aSxi + aRounds + vVec + svTerm = 0
+      ∧ uRounds + uConst = 0
+      ∧ pw + swxi + wRounds + wConst = 0 := by
+  have key : commitGen g (aP + aSxi + aRounds + vVec + svTerm)
+      + (uRounds + uConst) • U + (pw + swxi + wRounds + wConst) • W = 0 := by
+    have expand : commitGen g (aP + aSxi + aRounds + vVec + svTerm)
+        + (uRounds + uConst) • U + (pw + swxi + wRounds + wConst) • W
+        = commitGen g aP + pw • W + (commitGen g aSxi + swxi • W)
+          + (commitGen g aRounds + uRounds • U + wRounds • W) + commitGen g vVec
+          + uConst • U + wConst • W + commitGen g svTerm := by
+      simp only [commitGen_add_left, add_smul]; abel
+    rw [expand]; exact hflat
+  exact hbind _ _ _ key
+
+/-- **The value `⟨aP, b⟩ = v` follows from the split relations (O1 value extraction).** From the `g`-relation
+(`deployed_flat_split`'s first conjunct), taken in inner product with `b`, plus the `U`-relation and the
+honest/SZ structure: the blinding poly vanishes at the point (`⟨aSxi, b⟩ = 0` — `S` has a root at `x`, the
+`ξ`-challenge's job), the round `U`-coefficient is `z·⟨aRounds, b⟩` (the `z`-challenge ensures the prover
+cannot interfere with `U`), and the constants are `⟨vVec,b⟩ = -v` (the `[-v]g₀` term, `b₀ = 1`) and
+`⟨svTerm,b⟩ = -cb` (`cb = c·compute_b`, the folded generator's value). The `U`-relation forces
+`⟨aRounds,b⟩ = cb` (`z ≠ 0`), and the `g`-relation then collapses to `⟨aP,b⟩ = v`. So the extracted witness
+opens to the claimed value. Floor: the SZ challenge exclusions (`z`, `ξ`) named as `huRounds`/`hSxi`. -/
+theorem deployed_open_value {k : ℕ} (b aP aSxi aRounds vVec svTerm : Fin (2 ^ k) → F)
+    (uRounds uConst v ipRounds cb z : F)
+    (hg : aP + aSxi + aRounds + vVec + svTerm = 0)
+    (hu : uRounds + uConst = 0)
+    (hSxi : innerProduct aSxi b = 0) (hvVec : innerProduct vVec b = -v)
+    (hsvTerm : innerProduct svTerm b = -cb) (hRounds : innerProduct aRounds b = ipRounds)
+    (huConst : uConst = -(cb * z)) (huRounds : uRounds = z * ipRounds) (hz : z ≠ 0) :
+    innerProduct aP b = v := by
+  have hir : ipRounds = cb := by
+    have hzz : z * (ipRounds - cb) = 0 := by rw [mul_sub]; linear_combination hu - huRounds - huConst
+    rcases mul_eq_zero.mp hzz with h | h
+    · exact absurd h hz
+    · exact sub_eq_zero.mp h
+  have hgi : innerProduct aP b + innerProduct aSxi b + innerProduct aRounds b
+      + innerProduct vVec b + innerProduct svTerm b = 0 := by
+    have h0 : innerProduct (aP + aSxi + aRounds + vVec + svTerm) b = 0 := by
+      rw [hg]; simp [innerProduct]
+    rwa [innerProduct_add_left, innerProduct_add_left, innerProduct_add_left,
+      innerProduct_add_left] at h0
+  rw [hSxi, hvVec, hsvTerm, hRounds, hir] at hgi
+  linear_combination hgi
+
 /-- **The deployed leaf check peels to the clean `IpaAcceptV` leaf.** halo2's fully-folded verifier equation
 is `P + [z·v]U + [blind]W = [c](g₀ + [z·b₀]U) + [f]W` (the `g`-commitment, the value bound to `U` by the
 challenge `z`, the blinding on `W`). With `P = ⟨aP, g⟩` (the commitment's `g`-representation) the augmented
