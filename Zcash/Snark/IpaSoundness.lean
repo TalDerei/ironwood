@@ -45,24 +45,24 @@ theorem vandermonde3 (u₁ u₂ u₃ : F) (h12 : u₁ ≠ u₂) (h13 : u₁ ≠ 
   refine ⟨-(u₂ + u₃) / ((u₁ - u₂) * (u₁ - u₃)), -(u₁ + u₃) / ((u₂ - u₁) * (u₂ - u₃)),
     -(u₁ + u₂) / ((u₃ - u₁) * (u₃ - u₂)), ?_, ?_, ?_⟩ <;> field_simp <;> ring
 
-/-- **The IPA round is 3-special-sound for the commitment.** Three sub-openings of the folded commitment
-`P' = P + uᵢ⁻¹·L + uᵢ·R` against the folded generators `g_lo + uᵢ⁻¹·g_hi`, at three distinct nonzero
-challenges, pin the *parent* opening: the witness `a = (Σ lᵢuᵢ·cᵢ ‖ Σ lᵢ·cᵢ)` (assembled by the
-`vandermonde3` linear-coefficient combination) opens `P`, i.e. `commit g_lo a_lo + commit g_hi a_hi = P`.
+/-- **The IPA round is 3-special-sound for the commitment — explicit witness.** Given the three folded
+openings and Vandermonde coefficients `lᵢ` (the `vandermonde3` solution), the *explicit* parent witness
+`a = (Σ lᵢuᵢ·cᵢ ‖ Σ lᵢ·cᵢ)` opens `P`: `commit g_lo a_lo + commit g_hi a_hi = P`.
 
 The proof multiplies each opening by `uᵢ` to clear the inverse (`uᵢ·A_i + B_i = uᵢ·P + L + uᵢ²·R`), then
 combines by `lᵢ`: the `P`-coefficient becomes `Σ lᵢuᵢ = 1`, while `L` (`Σ lᵢ = 0`) and `R`
-(`Σ lᵢuᵢ² = 0`) cancel, and the `cᵢ`-terms cancel pairwise. No binding is used — this is the linear
-algebra that two challenges cannot do (they leave `commit g a − P = (u₁+u₂)·X` undetermined). -/
-theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
-    (c₁ c₂ c₃ : Fin m → F) (u₁ u₂ u₃ : F)
-    (h12 : u₁ ≠ u₂) (h13 : u₁ ≠ u₃) (h23 : u₂ ≠ u₃)
+(`Σ lᵢuᵢ² = 0`) cancel, and the `cᵢ`-terms cancel pairwise. No binding. The witness is *explicit* (not
+existential) so the SAME witness can be reused for the inner-product side at `G := F`. -/
+theorem ipa_round_commit_with_coeffs {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
+    (c₁ c₂ c₃ : Fin m → F) (u₁ u₂ u₃ l₁ l₂ l₃ : F)
+    (hl0 : l₁ + l₂ + l₃ = 0) (hl1 : l₁ * u₁ + l₂ * u₂ + l₃ * u₃ = 1)
+    (hl2 : l₁ * u₁ ^ 2 + l₂ * u₂ ^ 2 + l₃ * u₃ ^ 2 = 0)
     (hu₁ : u₁ ≠ 0) (hu₂ : u₂ ≠ 0) (hu₃ : u₃ ≠ 0)
     (e₁ : commitGen (g_lo + u₁⁻¹ • g_hi) c₁ = P + u₁⁻¹ • L + u₁ • R)
     (e₂ : commitGen (g_lo + u₂⁻¹ • g_hi) c₂ = P + u₂⁻¹ • L + u₂ • R)
     (e₃ : commitGen (g_lo + u₃⁻¹ • g_hi) c₃ = P + u₃⁻¹ • L + u₃ • R) :
-    ∃ a_lo a_hi : Fin m → F, commitGen g_lo a_lo + commitGen g_hi a_hi = P := by
-  obtain ⟨l₁, l₂, l₃, hl0, hl1, hl2⟩ := vandermonde3 u₁ u₂ u₃ h12 h13 h23
+    commitGen g_lo (l₁ • (u₁ • c₁) + l₂ • (u₂ • c₂) + l₃ • (u₃ • c₃))
+      + commitGen g_hi (l₁ • c₁ + l₂ • c₂ + l₃ • c₃) = P := by
   rw [commitGen_add_gen, commitGen_smul_gen] at e₁ e₂ e₃
   have s₁ : u₁ • commitGen g_lo c₁ + commitGen g_hi c₁ = u₁ • P + L + (u₁ * u₁) • R := by
     have h := congrArg (u₁ • ·) e₁
@@ -79,7 +79,6 @@ theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
     rw [← s₂]; abel
   have hB₃ : commitGen g_hi c₃ = u₃ • P + L + (u₃ * u₃) • R - u₃ • commitGen g_lo c₃ := by
     rw [← s₃]; abel
-  refine ⟨l₁ • (u₁ • c₁) + l₂ • (u₂ • c₂) + l₃ • (u₃ • c₃), l₁ • c₁ + l₂ • c₂ + l₃ • c₃, ?_⟩
   simp only [commitGen_add_left, commitGen_smul_left, hB₁, hB₂, hB₃]
   match_scalars <;>
     first
@@ -87,6 +86,21 @@ theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
       | linear_combination hl0
       | linear_combination hl2
       | ring
+
+/-- **The IPA round is 3-special-sound for the commitment.** Three sub-openings at distinct nonzero
+challenges pin the parent opening: `∃ a_lo a_hi, commit g_lo a_lo + commit g_hi a_hi = P`. The existential
+form; the witness is the `vandermonde3` combination (`ipa_round_commit_with_coeffs`). No binding. -/
+theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
+    (c₁ c₂ c₃ : Fin m → F) (u₁ u₂ u₃ : F)
+    (h12 : u₁ ≠ u₂) (h13 : u₁ ≠ u₃) (h23 : u₂ ≠ u₃)
+    (hu₁ : u₁ ≠ 0) (hu₂ : u₂ ≠ 0) (hu₃ : u₃ ≠ 0)
+    (e₁ : commitGen (g_lo + u₁⁻¹ • g_hi) c₁ = P + u₁⁻¹ • L + u₁ • R)
+    (e₂ : commitGen (g_lo + u₂⁻¹ • g_hi) c₂ = P + u₂⁻¹ • L + u₂ • R)
+    (e₃ : commitGen (g_lo + u₃⁻¹ • g_hi) c₃ = P + u₃⁻¹ • L + u₃ • R) :
+    ∃ a_lo a_hi : Fin m → F, commitGen g_lo a_lo + commitGen g_hi a_hi = P := by
+  obtain ⟨l₁, l₂, l₃, hl0, hl1, hl2⟩ := vandermonde3 u₁ u₂ u₃ h12 h13 h23
+  exact ⟨_, _, ipa_round_commit_with_coeffs g_lo g_hi P L R c₁ c₂ c₃ u₁ u₂ u₃ l₁ l₂ l₃
+    hl0 hl1 hl2 hu₁ hu₂ hu₃ e₁ e₂ e₃⟩
 
 /-- A length-`2^{k+1}` commitment splits over the two halves:
 `commit g a = commit (loHalf g) (loHalf a) + commit (hiHalf g) (hiHalf a)`. The IPA recursion's bridge from
@@ -156,5 +170,62 @@ theorem ipa_sound : {d : ℕ} → (g : Fin (2 ^ d) → G) → (P : G) → (t : I
       obtain ⟨a_lo, a_hi, hP⟩ := ipa_round_commit_sound (loHalf g) (hiHalf g) P L R c₁ c₂ c₃
         u₁ u₂ u₃ h12 h13 h23 hu₁ hu₂ hu₃ hc₁ hc₂ hc₃
       exact ⟨append a_lo a_hi, by rw [commitGen_append]; exact hP⟩
+
+/-! ## The full opening relation (commitment + inner product)
+
+The inner product `⟨a, b⟩ = v` is *the same theorem at `G := F`*: `commitGen b a = ∑ aⱼ • bⱼ = ⟨a, b⟩`, so
+the eval vector `b` plays the role of the generators and the value `v` the role of the commitment, with the
+verifier folding `b` by `foldGens` exactly as it folds `g` (`innerProduct_round`). Carrying both in one
+tree and reusing `ipa_round_commit_with_coeffs` for each (with the SAME explicit witness) derives the full
+`IpaRelation`. -/
+
+/-- A 3-ary IPA transcript tree carrying both the **commitment** cross-terms `L`,`R` (in `G`) and the
+**inner-product** cross-terms `Lv`,`Rv` (in `F`) per round. -/
+inductive IpaTreeV (F G : Type*) : ℕ → Type _ where
+  | leaf : F → IpaTreeV F G 0
+  | node {d : ℕ} : G → G → F → F → F → F → F →
+      IpaTreeV F G d → IpaTreeV F G d → IpaTreeV F G d → IpaTreeV F G (d + 1)
+
+/-- Acceptance for the full relation: the verifier folds the generators `g` and the eval vector `b` (both
+by `foldGens`), the commitment `P` (by `L`,`R`) and the value `v` (by `Lv`,`Rv`); the leaf checks
+`P = [c]·g₀` and `v = c·b₀`. -/
+def IpaAcceptV : {d : ℕ} → (Fin (2 ^ d) → G) → (Fin (2 ^ d) → F) → G → F → IpaTreeV F G d → Prop
+  | 0, g, b, P, v, .leaf c => P = commitGen g (fun _ => c) ∧ v = commitGen b (fun _ => c)
+  | _ + 1, g, b, P, v, .node L R Lv Rv u₁ u₂ u₃ t₁ t₂ t₃ =>
+      u₁ ≠ u₂ ∧ u₁ ≠ u₃ ∧ u₂ ≠ u₃ ∧ u₁ ≠ 0 ∧ u₂ ≠ 0 ∧ u₃ ≠ 0 ∧
+        IpaAcceptV (foldGens g u₁) (foldGens b u₁) (P + u₁⁻¹ • L + u₁ • R) (v + u₁⁻¹ • Lv + u₁ • Rv) t₁ ∧
+        IpaAcceptV (foldGens g u₂) (foldGens b u₂) (P + u₂⁻¹ • L + u₂ • R) (v + u₂⁻¹ • Lv + u₂ • Rv) t₂ ∧
+        IpaAcceptV (foldGens g u₃) (foldGens b u₃) (P + u₃⁻¹ • L + u₃ • R) (v + u₃⁻¹ • Lv + u₃ • Rv) t₃
+
+/-- **Full IPA knowledge soundness — the opening relation, derived from acceptance.** An accepting
+transcript tree yields a single witness `a` that both opens the commitment and gives the claimed inner
+product: `∃ a, commit g a = P ∧ commit b a = v` (and `commit b a = ⟨a, b⟩`). The two conjuncts share the
+*same* `a` — the explicit Vandermonde combination — by applying `ipa_round_commit_with_coeffs` to the
+commitment (`G`) and the inner product (`G := F`, generators `b`) with one set of coefficients. Binding-free.
+This is `IpaRelation` (`commit a = P ∧ ⟨a,b⟩ = v`) discharged from the verifier's accept. -/
+theorem ipa_soundV : {d : ℕ} → (g : Fin (2 ^ d) → G) → (b : Fin (2 ^ d) → F) → (P : G) → (v : F) →
+    (t : IpaTreeV F G d) → IpaAcceptV g b P v t →
+    ∃ a : Fin (2 ^ d) → F, commitGen g a = P ∧ commitGen b a = v
+  | 0, g, b, P, v, .leaf c, h => ⟨fun _ => c, h.1.symm, h.2.symm⟩
+  | _ + 1, g, b, P, v, .node L R Lv Rv u₁ u₂ u₃ t₁ t₂ t₃, h => by
+      obtain ⟨h12, h13, h23, hu₁, hu₂, hu₃, ha₁, ha₂, ha₃⟩ := h
+      obtain ⟨c₁, hP₁, hv₁⟩ := ipa_soundV (foldGens g u₁) (foldGens b u₁) _ _ t₁ ha₁
+      obtain ⟨c₂, hP₂, hv₂⟩ := ipa_soundV (foldGens g u₂) (foldGens b u₂) _ _ t₂ ha₂
+      obtain ⟨c₃, hP₃, hv₃⟩ := ipa_soundV (foldGens g u₃) (foldGens b u₃) _ _ t₃ ha₃
+      obtain ⟨l₁, l₂, l₃, hl0, hl1, hl2⟩ := vandermonde3 u₁ u₂ u₃ h12 h13 h23
+      refine ⟨append (l₁ • (u₁ • c₁) + l₂ • (u₂ • c₂) + l₃ • (u₃ • c₃)) (l₁ • c₁ + l₂ • c₂ + l₃ • c₃),
+        ?_, ?_⟩
+      · rw [commitGen_append]
+        exact ipa_round_commit_with_coeffs (loHalf g) (hiHalf g) P L R c₁ c₂ c₃ u₁ u₂ u₃ l₁ l₂ l₃
+          hl0 hl1 hl2 hu₁ hu₂ hu₃ hP₁ hP₂ hP₃
+      · rw [commitGen_append]
+        exact ipa_round_commit_with_coeffs (loHalf b) (hiHalf b) v Lv Rv c₁ c₂ c₃ u₁ u₂ u₃ l₁ l₂ l₃
+          hl0 hl1 hl2 hu₁ hu₂ hu₃ hv₁ hv₂ hv₃
+
+/-- `commitGen b a` over `G := F` is exactly the inner product `⟨a, b⟩`, so `ipa_soundV`'s second conjunct
+is the IPA's evaluation claim. -/
+theorem commitGen_eq_innerProduct {n : ℕ} (b a : Fin n → F) :
+    commitGen b a = ∑ i, a i * b i := by
+  simp only [commitGen, smul_eq_mul]
 
 end Zcash.Snark
