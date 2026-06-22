@@ -1,5 +1,6 @@
 import Zcash.Snark.Main
 import Zcash.Snark.IpaUWS
+import Zcash.Snark.Multiopen
 
 /-!
 # The §1↔§2 weld capstone: deployed acceptance ⇒ SNARK relation, U/W/S peeled
@@ -117,6 +118,40 @@ theorem orchard_verifier_sound_deployed_full [DecidableEq G] [Inhabited G] {shap
     circuitSatViaGates_of_check fixedCols decodeAdvice decodeInstance y gates hpoly deg a x
       (hquot a hrel) (hgood a hrel)
   exact hencodes a ⟨hrel, hsat⟩
+
+/-! ## The multiopen decode wired to acceptance (checklist O3)
+
+The IPA opening recovers the *collapsed* witness for the multiopen commitment `P`. To feed the gate check we
+need the *individual* column openings — what `multiopen_decode_deployed` recovers from the batching rewinding.
+`DeployedMultiopenRewind` is that bridge (the batching analog of `DeployedIpaRewind`); `decoded_columns_of_accept`
+derives the per-column openings from acceptance, so `decodeAdvice`/`decodeInstance` are no longer free — they
+are the genuinely recovered columns. The residual is the batching rewinding (a ROM floor) and, for the
+identification of decoded columns with the circuit's columns, VK-correctness. -/
+
+/-- **The deployed multiopen batching bridge — the batching special-soundness rewinding.** Acceptance yields,
+for `n` distinct batching challenges `zBatch k`, a deployed IPA transcript tree opening the batched
+commitment `Σⱼ (zBatch k)ʲ·C j` to the batched value `Σⱼ (zBatch k)ʲ·e j` (with `U`/`W`/`S` carried). The
+batching analog of `DeployedIpaRewind`: its content is the rewinding of the batching challenge, the
+irreducible ROM floor (`multiopen_decode_deployed` discharges the algebra). -/
+def DeployedMultiopenRewind {n : ℕ} (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (C : Fin n → G)
+    (e : Fin n → Fp) (zBatch : Fin n → Fp) (zIpa : Fp) (accepts : Prop) : Prop :=
+  accepts → Function.Injective zBatch ∧ zIpa ≠ 0 ∧
+    ∃ (blind : Fin n → Fp) (t : Fin n → DeployedIpaTreeV Fp G srs.k),
+      ∀ k, DeployedIpaAcceptV srs.g b srs.u srs.w zIpa
+        (∑ j : Fin n, zBatch k ^ (j : ℕ) • C j) (∑ j : Fin n, zBatch k ^ (j : ℕ) • e j) (blind k) (t k)
+
+/-- **The per-column openings are derived from acceptance** (O3 wired). Given the batching bridge and the
+augmented binding, every individual column `i` opens to its commitment `C i` and its claimed evaluation
+`e i`: `∃ col, ∀ i, commit srs col_i = C i ∧ ⟨col_i, b⟩ = e i`. Composes the bridge with the proven
+`multiopen_decode_deployed`. -/
+theorem decoded_columns_of_accept {n : ℕ} (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (C : Fin n → G)
+    (e : Fin n → Fp) (zBatch : Fin n → Fp) {zIpa : Fp}
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := Fp) g' srs.u srs.w)
+    {accepts : Prop} (bridge : DeployedMultiopenRewind srs b C e zBatch zIpa accepts) (h : accepts) :
+    ∃ col : Fin n → (Fin (2 ^ srs.k) → Fp),
+      ∀ i, commitGen srs.g (col i) = C i ∧ commitGen b (col i) = e i := by
+  obtain ⟨hzBatch, hzIpa, blind, t, ht⟩ := bridge h
+  exact multiopen_decode_deployed srs b C e zBatch hzBatch hbind hzIpa blind t ht
 
 /-! ## `P`/`v` pinned to the §1 assembly (checklist B3)
 
