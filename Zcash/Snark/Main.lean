@@ -119,4 +119,37 @@ theorem orchard_sound_via_transcript (srs : SRS G)
     rw [hext]; exact ⟨hopen, hsat⟩
   exact hencodes hrel
 
+/-- **The Fiat–Shamir / special-soundness assumption, stated minimally.** A deployed accepting proof
+yields a *tree* of accepting transcripts — the prover rewound under reprogrammed challenges. This is the
+**irreducible** ROM/forking step (the `Accepting` tree needs multiple distinct-challenge transcripts, which
+one proof cannot give in the standard model), exactly analogous to DLR hardness for binding. Note what it
+does **not** include: the IPA extraction, consistency, and constraint discharge are all *proven*
+downstream (`accepting_extract`, `circuitSatViaGates_of_check`), so this assumes only the rewinding itself
+— the minimal honest form (cf. the earlier `ExtractableFromAcceptance`, which over-assumed the extraction
+*output*). -/
+def FiatShamirRewind (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
+    (circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop) (accepts : Prop) : Prop :=
+  accepts → ∃ wt : WTree Fp srs.k,
+    Accepting srs.g wt ∧ IpaRelation srs P b v wt.witness ∧ circuitSat wt.witness
+
+/-- **The deployed Orchard verifier is sound, modulo the minimal named assumptions (C1 closed mod FS).**
+From the deployed accept condition (`haccepts : DeployedAccepts`, i.e. `assemble.eval srs = 0`) and the
+Fiat–Shamir rewinding assumption (`hfs`), and the VK encoding the statement (`hencodes`), conclude the
+high-level statement `S`. Everything between acceptance and `S` is **proven**: rewinding gives an
+`Accepting` tree, then `accepting_extract` extracts the witness, it opens the commitment, and
+`circuitSatViaGates_of_check`-style reasoning gives circuit-satisfaction — so the *only* assumptions are
+the explicit named ones: DLR hardness (inside `Accepting`'s binding), Fiat–Shamir rewinding (`hfs`),
+VK-correctness (`hencodes`), and the Vesta curve order (in `Zcash.Snark.Vesta`). This is the honest
+terminal form of the §1↔§2 bridge: C1's residual is exactly the irreducible FS assumption, isolated. -/
+theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hfs : FiatShamirRewind srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
+    S := by
+  obtain ⟨wt, haccept, hopen, hsat⟩ := hfs haccepts
+  exact orchard_sound_via_transcript srs wt haccept hopen hsat (hencodes (extract wt.toTree))
+
 end Zcash.Snark
