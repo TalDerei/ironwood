@@ -81,6 +81,24 @@ def circuitSatViaGates {k : ℕ} (fixedCols : ℕ → Polynomial Fp)
     (a : Fin (2 ^ k) → Fp) : Prop :=
   combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates = hpoly * (X ^ deg - 1)
 
+/-- **`circuitSat`, derived from the deployed constraint check** (not assumed). With the numerator the gate
+combination `combineGates …`, an accepting quotient check at the challenge `x` plus a good challenge
+(`x` not a root of the constraint difference — its complement the `≤ deg/p` Schwartz–Zippel bad set) gives
+`circuitSatViaGates …`: the witness's decoded columns satisfy the gates. So the circuit-satisfaction
+conjunct of `SnarkRelation` is discharged from acceptance via `constraint_identity_of_accept`, modulo only
+the multiopen decode. -/
+theorem circuitSatViaGates_of_check {k : ℕ} (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin (2 ^ k) → Fp) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ)
+    (a : Fin (2 ^ k) → Fp) (x : Fp)
+    (hcheck : quotientCheck
+      (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates) hpoly deg x)
+    (hgood : combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0) :
+    circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg a :=
+  constraint_identity_of_accept _ hpoly deg x hcheck hgood
+
 /-- **Knowledge soundness (modulo its hypotheses).** *Given* a consistent transcript tree `t` for `a`
 (`hcons`), the opening (`hopen`), and circuit-satisfaction of `a` (`hsat`), the extractor recovers the
 **unique** witness satisfying `SnarkRelation`. Composes `extract_correct` (extraction) and
