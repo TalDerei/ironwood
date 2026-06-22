@@ -437,4 +437,80 @@ theorem orchard_verifier_sound_deployed_cols [DecidableEq G] [Inhabited G] {shap
     (hgood col hcol)
   exact hencodes col hcol hsat
 
+/-! ## The integrated capstone: AGM O1 + derived O2 + columns O3, end-to-end (no tree, no assumed `hquot`)
+
+`orchard_verifier_sound_deployed_complete` composes the three closed routes into one exported theorem over the
+real assembly, with **no posited tree and no assumed gate point-check**:
+* **O1 (AGM)** — `orchard_verifier_sound_deployed_agm` derives `IpaRelation` directly from `DeployedAccepts`.
+* **O3 (decode)** — `decoded_columns_of_accept` recovers the per-column openings.
+* **O2 (derived)** — `deployed_constraint_of_decode` derives the gate identity from the decoded `h`-column +
+  the VK numerator + SZ (so `hquot` is *not* a hypothesis — it is derived inside).
+
+Inputs are exactly the named floor: the AGM representations + augmented binding + SZ (O1), the batching
+rewinding (O3), the VK numerator + SZ (O2), and VK-correctness (`hencodes`). -/
+open Polynomial in
+theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {shape : Shape}
+    (g : Fin (2 ^ shape.k) → G) (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp)
+    -- O1 (AGM opening) data:
+    (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds ipRounds cb : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := Fp) g' uu w)
+    (hP : (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).1.eval
+        ⟨shape.k, g, w, uu⟩ = commitGen g aP + pw • w)
+    (hS : ps.ipaS = commitGen g aS + sw • w)
+    (hRounds : (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+        (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum = commitGen g aRounds + uRounds • uu + wRounds • w)
+    (hSxi : innerProduct (ch.xi • aS) (evalVector shape.k ch.x3) = 0)
+    (hvVec : innerProduct (fun i => ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime
+        (List.ofFn ps.multiopenU) (constructIntermediateSets (assembleQueries vk ps ch))
+        (Msm.zero shape.k Fp G)).2] : List Fp).getD i.val 0) (evalVector shape.k ch.x3)
+      = -(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2)
+    (hsvTerm : innerProduct (fun i => (computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD (i : ℕ) 0)
+      (evalVector shape.k ch.x3) = -cb)
+    (hRoundsIP : innerProduct aRounds (evalVector shape.k ch.x3) = ipRounds)
+    (huConst : (-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z = -(cb * ch.z))
+    (huRounds : uRounds = ch.z * ipRounds) (hz : ch.z ≠ 0)
+    -- O3 (decode) data:
+    {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
+    (hMulti : DeployedMultiopenRewind (⟨shape.k, g, w, uu⟩ : SRS G) (evalVector shape.k ch.x3) C e zBatch
+      ch.z (DeployedAccepts (⟨shape.k, g, w, uu⟩ : SRS G) rfl vk ps ch))
+    -- O2 (derived constraint) data:
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ shape.k) → Fp)) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (xc eHEval : Fp)
+    (hHcol : hpoly.eval xc = eHEval)
+    (hNum : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates).eval xc = eHEval * (xc ^ deg - 1))
+    (hgood : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates
+        - hpoly * (X ^ deg - 1)).eval xc ≠ 0)
+    (haccepts : DeployedAccepts (⟨shape.k, g, w, uu⟩ : SRS G) rfl vk ps ch)
+    {S : Prop}
+    (hencodes : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      IpaRelation (⟨shape.k, g, w, uu⟩ : SRS G) (commitGen g aP) (evalVector shape.k ch.x3)
+        (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+          (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp G)).2 aP →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates = hpoly * (X ^ deg - 1) →
+      S) :
+    S := by
+  -- O1: the IPA opening, AGM route (no tree)
+  have hrel := orchard_verifier_sound_deployed_agm g w uu vk ps ch (evalVector shape.k ch.x3)
+    aP aS aRounds pw sw uRounds wRounds ipRounds cb (hbind g) hP hS hRounds hSxi hvVec hsvTerm
+    hRoundsIP huConst huRounds hz haccepts
+  -- O3: the per-column decode
+  obtain ⟨col, hcol⟩ :=
+    decoded_columns_of_accept (⟨shape.k, g, w, uu⟩ : SRS G) (evalVector shape.k ch.x3) C e zBatch
+      hbind hMulti haccepts
+  -- O2: the gate identity derived from the decoded h-column + VK numerator + SZ
+  have hconstraint := deployed_constraint_of_decode
+    (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates) hpoly deg xc eHEval
+    hHcol (hNum col hcol) (hgood col hcol)
+  exact hencodes col hcol hrel hconstraint
+
 end Zcash.Snark
