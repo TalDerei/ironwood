@@ -92,23 +92,31 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done. Tags reference the findin
   compiles `fingerprint_matches`; `lake build Zcash` stays fast.
 - [x] **H3** — orphan `Scratch.*` build artifacts removed.
 
-### The §1↔§2 weld is CLOSED (details in `s2-wiring-checklist.md`)
+### The §1↔§2 weld — U/W/S soundness closed; 3 wiring items open (details in `s2-wiring-checklist.md`)
 The IPA / multiopen / constraint **soundness logic is fully proven** (binding-free, kernel-clean):
 `ipa_soundV` (opening), `multiopen_decode_of_trees` / `batch_open_soundV` (per-column decode),
-`circuitSatViaGates_of_check` (constraint). On top of that the weld itself is now proven:
+`circuitSatViaGates_of_check` (constraint). On top of that:
 
-- **The recursive opening soundness over halo2's concrete `U`/`W`/`S` structure** (`Zcash/Snark/IpaUWS.lean`):
-  `deployed_ipa_soundV` — the deployed verifier's single combined check (value-binding `U`, blinding `W`,
-  synthetic-blinding `S`/`ξ`) peels via the augmented binding (`AugmentedBinding.separate`,
-  `deployed_leaf_peel`, `deployed_to_acceptV`) onto the proven `ipa_soundV`.
-- **The MSM↔tree structural correspondence** (`Zcash/Snark/IpaDeployed.lean`): `foldAll = G'₀` (`compute_s`/
-  `compute_g`) and `compute_b = ⟨sFun u 1, evalVector x⟩` — faithful to the Rust.
-- **The capstone** (`Zcash/Snark/Weld.lean`): `orchard_verifier_sound_deployed_full` / `_pinned`
-  (+ Vesta `_vesta_full`) derive **both** conjuncts of `SnarkRelation` with `P`/`b`/`v` pinned to the §1
-  assembly (`multiopenCommitment` / `multiopenValue` / `evalVector x₃`). `DeployedIpaRewind` replaces
-  `FiatShamirTree` as the *pure* rewinding bridge (the structural + `U`/`W`/`S` content now proven).
+- **PROVEN — the recursive opening soundness over halo2's concrete `U`/`W`/`S` structure**
+  (`Zcash/Snark/IpaUWS.lean`): `deployed_ipa_soundV` — the deployed verifier's single combined check
+  (value-binding `U`, blinding `W`, synthetic-blinding `S`/`ξ`) peels via the augmented binding
+  (`AugmentedBinding.separate`, `deployed_leaf_peel`, `deployed_to_acceptV`) onto the proven `ipa_soundV`.
+  On the capstone path. The headline result.
+- **PROVEN — the fold facts** (`Zcash/Snark/IpaDeployed.lean`): `foldAll = G'₀` (`compute_s`/`compute_g`) and
+  `compute_b = ⟨sFun u 1, evalVector x⟩`, faithful to the Rust. **The capstone** (`Zcash/Snark/Weld.lean`):
+  `orchard_verifier_sound_deployed_full` / `_pinned` (+ Vesta `_vesta_full`) derive both conjuncts of
+  `SnarkRelation` with `P`/`b`/`v` pinned to the §1 assembly.
+- **PROVEN — O1 (`s2-wiring-checklist.md`):** `deployed_verification_eq` proves the flat deployed accept IS
+  halo2's IPA verifier equation with `G'₀ = foldAll` explicit (via `deployed_gterm_foldAll`), so the
+  structural correspondence is no longer bundled — `DeployedIpaRewind`'s residual is the pure rewinding.
+- **STILL OPEN — O2/O3 (the constraint/multiopen *assembly*-soundness workstream):** (O2) deriving the
+  constraint check from the MSM first needs the permutation/lookup constraints modeled as polynomials
+  (`expectedHEval` folds gates ++ perm ++ lookup; `combineGates` covers only gates), then the vanishing-query
+  derivation. (O3) connecting `multiopen_decode_of_trees` to `decodeAdvice`/`decodeInstance` needs the
+  two-layer multiopen model + a batching-rewinding bridge + the column identification. Both bottom out at
+  VK-correctness and are comparable in size to the IPA weld.
 
-What remains is exactly the standard, named cryptographic floor:
+What remains beyond O2/O3 is exactly the standard, named cryptographic floor:
 - **Special-soundness rewinding** (`DeployedIpaRewind`: accept → distinct-challenge tree) — irreducible ROM.
 - **Augmented binding** (`AugmentedBinding`: `g ∪ {U,W}` independent) — DLR hardness / AGM on the Pasta
   generators (reduction proven for the plain commitment; extended to `params.u`/`params.w`).

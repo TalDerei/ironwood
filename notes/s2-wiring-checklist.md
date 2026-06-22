@@ -1,84 +1,85 @@
-# §1↔§2 weld — wiring checklist (CLOSED)
+# §1↔§2 weld — wiring checklist
 
 Context: C1/C3 derive `IpaRelation`/`circuitSat` from *structured checks* (the transcript tree, the gate
 point-check) — the cryptographic extraction is genuinely proven, binding-free, kernel-clean. The reviews
 flagged that the **weld** from the deployed flattened `assemble.eval = 0` to those structured checks was
-still *assumed* (bundled in `FiatShamirTree`/`hquot`), and that the lemma discharging most of it
-(`eval_assembleFinalMsm`) was proven but **unwired**.
+still *assumed* (bundled in the bridge + the C3 hypotheses).
 
-This is now closed: the recursive IPA opening soundness over halo2's **concrete `U`/`W`/`S` structure** is
-proven (`Zcash/Snark/IpaUWS.lean`), the generator/value fold correspondence is proven
-(`Zcash/Snark/IpaDeployed.lean`), and the capstone (`Zcash/Snark/Weld.lean`) derives both conjuncts of
-`SnarkRelation` with `P`/`b`/`v` **pinned** to the §1 fingerprint. The only remaining inputs are the
-legitimate cryptographic floor.
+The headline result is now proven: the recursive IPA opening soundness over halo2's **concrete `U`/`W`/`S`
+structure** (`deployed_ipa_soundV`). But three wiring items remain genuinely open (proven-but-unwired or
+assumed-not-derived) — they are **not** the irreducible floor; they are algebra still to connect. They are
+listed first.
 
-Legend: ⚙ mechanical · 🔒 irreducible/standard floor (named, documented) · ✍ docs/integrity · ✅ done+committed
+Legend: ✅ proven & on the capstone path · ⚠️ OPEN (proven-but-unwired / assumed-not-derived) ·
+🔒 named standard floor (won't be eliminated) · ✍ docs.
 
-## A. Honesty fixes ✍ — ✅ DONE (`ea8d3e9`)
-- [x] **A1.** `FiatShamirTree` docstring rewritten. [R3-a]
-- [x] **A2.** `_C1`/`_C3` docstrings made honest. [R3-a, R1-a]
-- [x] **A3.** `orchard_verifier_sound_deployed_final` marked superseded. [R2-d]
+## ✅ O1 — CLOSED (structural correspondence proven; bridge = pure rewinding)
 
-## B. The structural correspondence + the recursive opening soundness — ✅ DONE
-Verified against `zcash/halo2` `poly/commitment/{verifier,prover}.rs`: `eval_ipaFold` matches `verify_proof`
-line-for-line; the relation `v = p(x₃)`, `[-c·b·z]U` binds `⟨p',b⟩ = 0`, `[-f]W` the blinding, `S`/`ξ` the
-synthetic blinding (from `create_proof`).
-- [x] **B-core (generator + value fold).** `Zcash/Snark/IpaDeployed.lean`: `computeS`/`sFun`/`sFun_fold`
-  (the deployed `computeS` flattening IS `foldGens` at the inverted challenge), `foldAll_eq_compute_g`
-  (`foldAll = G'₀`), `computeS_gterm_foldAll` (the `g`-term `= [-c]·G'₀`); and `computeB_snd`/`computeB_cons`/
-  `loHalf_pow`/`hiHalf_pow`/`computeB_eq` (halo2 `compute_b = ⟨sFun u 1, evalVector x⟩`). Kernel-clean,
-  faithful to the source.
-- [x] **B-rest (the recursive opening soundness over `U`/`W`/`S`).** `Zcash/Snark/IpaUWS.lean`:
-  `AugmentedBinding` (`g ∪ {U,W}` jointly independent — DLR/AGM extended to the two fixed generators) +
-  `AugmentedBinding.separate` (coordinate-wise peel) + `deployed_leaf_peel` (halo2's combined leaf
-  `P+[z·v]U+[blind]W = [c]g₀+[z·c·b₀]U+[f]W` separates into the clean `IpaAcceptV` leaf checks). Then
-  `DeployedIpaAcceptV` models the deployed recursion carrying `U`/`W`/`S` explicitly, `deployed_to_acceptV`
-  peels it to `IpaAcceptV`, and `deployed_ipa_soundV` composes with the proven `ipa_soundV` →
-  `∃ a, ⟨a,g⟩ = P ∧ ⟨a,b⟩ = v`. Kernel-clean. **This closes the `U`/`W`/`S` structure onto `ipa_soundV`.**
-  Floor 🔒: the augmented binding (DLR/AGM) and the transcript tree (special-soundness rewinding).
-- [x] **B3 (split + pin `P`/`b`/`v`).** `Zcash/Snark/Weld.lean`: `DeployedIpaRewind` is now the *pure*
-  rewinding bridge (the `U`/`W`/`S` separation and the fold correspondence are proven, no longer bundled);
-  `orchard_verifier_sound_deployed_pinned` pins `P = multiopenCommitment`, `v = multiopenValue`,
-  `b = evalVector shape.k ch.x3` — the actual §1 assembly objects, not free metavariables.
+- [x] **O1.** `deployed_gterm_foldAll` (`Zcash/Snark/IpaDeployed`) resolves the `List.ofFn`-length↔`m` cast,
+  so the assembly's `computeS` generator term equals `[-c]·foldAll`. `deployed_verification_eq`
+  (`Zcash/Snark/Weld`) then proves the flat deployed accept (`assembleFinalMsm.eval`) **is** halo2's IPA
+  verifier equation `P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀` with `G'₀ = foldAll` explicit,
+  for the multiopen commitment/value. So the MSM↔(IPA equation) structural correspondence is **proven**, not
+  bundled; `DeployedIpaRewind`'s sole residual is the rewinding of that proven equation into the 3-ary tree
+  (the ROM floor). The fold facts are on the proven deployed-accept path. [R3-a.i]
 
-## C. The constraint side + multiopen decode — ✅ DONE (logic proven; layout = VK floor)
-- [x] **C1.** The multiopen decode logic is proven (`multiopen_decode_of_trees` / `batch_open_soundV` /
-  `vandermonde_inv`, `Zcash/Snark/IpaSoundness.lean`): per-column openings recovered from the rewound
-  batching trees, binding-free. `decodeAdvice`/`decodeInstance` in the capstone are the decode interface;
-  the identification of the decoded columns with the circuit's advice/instance columns is part of
-  VK-correctness 🔒 (the assembly's query layout = the circuit's columns). [R3-c, R1-b]
-- [x] **C2.** `circuitSat` (concrete `circuitSatViaGates`) is *derived* from the verifier's gate point-check
-  via `circuitSatViaGates_of_check` (`constraint_identity_of_accept` + Schwartz–Zippel). `hquot` (the gate
-  point-check at `x`, part of `assemble.eval = 0`) and `hgood` (the SZ good challenge, the `≤ deg/p`
-  exclusion) are the named constraint-side floor 🔒. [R1-a, R2-a, R3-d.3]
+## ⚠️ STILL OPEN — O2/O3 are the constraint/multiopen **assembly-soundness** workstream
 
-## D. Concrete Vesta coverage ⚙ — ✅ DONE
-- [x] **D1.** `orchard_verifier_sound_vesta_C3` and `orchard_verifier_sound_vesta_full` (the full
-  `U`/`W`/`S`-peeled capstone over `SWPoint Vesta.curve`). [R1-c, R2-c]
+These are not quick wiring. The soundness *logic* is proven (`circuitSatViaGates_of_check`, `eval_combineGates`,
+`multiopen_decode_of_trees`), but connecting it to the deployed assembly needs substantial new **modeling**
+and ultimately bottoms out at VK-correctness 🔒. Scoped precisely below.
 
-## E. FS schedule ↔ fixture ⚙ — ✅ DONE
-- [x] **E1.** `nonInteractiveFingerprint_matches` (`Zcash/Snark/FixtureFiatShamir.lean`). [R2-b]
+- [ ] **O2. Derive the constraint check from `assemble.eval = 0`.** Two sub-gaps:
+  - **O2a (modeling gap, newly identified).** The deployed vanishing check uses `expectedHEval` =
+    `(allExpressions.foldl (acc·y+v) 0)·(xⁿ−1)⁻¹`, where `allExpressions = gates ++ permutation ++ lookup`
+    (per sub-proof). The modeled `circuitSatViaGates`/`combineGates` covers **only the gates**. Closing O2
+    first needs the permutation- and lookup-argument constraints lifted to polynomials (à la `Expr.toPoly`)
+    and folded into the numerator so the modeled numerator = `expectedHEval`'s (incl. the `y`-power order and
+    the `(xⁿ−1)⁻¹`).
+  - **O2b (derivation).** Then derive `hquot` (the point-check) from the deployed accept: the vanishing query
+    in `assembleQueries`, once opened via the multiopen decode (O3), forces `expectedHEval = h(x)·(xⁿ−1)`,
+    i.e. the numerator point-check. Currently `hquot` is a capstone hypothesis. [R1-a, R2-a, R3-d.3]
 
-## F. Checklist hygiene ✍ — ✅ DONE
-- [x] **F1.** `notes/fv-review-checklist.md` de-staled. [R1-d, R2-b]
+- [ ] **O3. Connect the multiopen decode to `decodeAdvice`/`decodeInstance`.** `multiopen_decode_of_trees`
+  recovers per-column openings from the **batching** rewinding (one challenge layer above the IPA opening).
+  The capstone's IPA witness `a` opens the *collapsed* commitment; turning it into the circuit's advice/
+  instance column polynomials needs (i) the two-layer multiopen structure (`x₁` compression + `x₄` collapse)
+  modeled so the decode applies, (ii) a batching-rewinding bridge (another ROM floor), and (iii) the
+  identification of decoded columns with the circuit's columns — VK-correctness 🔒. So `decodeAdvice`/
+  `decodeInstance` stay the abstract decode interface; the logic is proven, the wiring is the assembly model.
+  [R3-c, R1-b]
 
-## Honest end-state — the trust boundary
-Proven (kernel-clean `[propext, Classical.choice, Quot.sound]`, faithful to halo2):
-- §1 model = `verify_proof` (`eval_ipaFold`/`eval_assembleFinalMsm`, verified symbolically).
-- The generator/value fold correspondence (`foldAll = G'₀`, `compute_b = ⟨sFun, evalVector⟩`).
-- The IPA / multiopen / constraint **soundness logic** (`ipa_soundV`, `multiopen_decode_of_trees`,
-  `circuitSatViaGates_of_check`).
-- **The recursive opening soundness over halo2's concrete `U`/`W`/`S` structure** (`deployed_ipa_soundV`):
-  the deployed verifier's combined check peels (augmented binding) to the clean recursion.
-- The end-to-end capstone with `P`/`b`/`v` pinned (`orchard_verifier_sound_deployed_pinned`,
-  `_vesta_full`).
+## ✅ Proven & on the capstone path
 
-Assumed (the legitimate, named, standard floor):
-- **Special-soundness rewinding** (`DeployedIpaRewind`: acceptance → a distinct-challenge transcript tree) —
-  the irreducible ROM/forking step.
+- [x] **B-rest — the recursive opening soundness over `U`/`W`/`S` (the headline).** `Zcash/Snark/IpaUWS.lean`:
+  `AugmentedBinding`/`.separate`/`deployed_leaf_peel` (the peeling), `DeployedIpaAcceptV` (the deployed
+  recursion carrying `U` value-binding, `W` blinding, `S`/`ξ` synthetic blinding), `deployed_to_acceptV`
+  (peels to the clean `IpaAcceptV`), `deployed_ipa_soundV` (composes with the proven `ipa_soundV`) →
+  `∃ a, ⟨a,g⟩ = P ∧ ⟨a,b⟩ = v`. On the capstone path via `ipaRelation_of_deployedAcceptV`. Kernel-clean.
+- [x] **B-core (facts).** `foldAll = G'₀` (`compute_s`/`compute_g`), `compute_b = ⟨sFun u 1, evalVector x⟩` —
+  proven, faithful to the Rust. *(Wiring to the bridge = O1.)*
+- [x] **B3 (pin `P`/`b`/`v`).** `orchard_verifier_sound_deployed_pinned`: `P = multiopenCommitment`,
+  `v = multiopenValue`, `b = evalVector shape.k ch.x3`. *(The "pure rewinding" half of the split = O1.)*
+- [x] **C3 lift.** `circuitSatViaGates_of_check`: gate point-check + SZ good challenge → constraint identity.
+  *(Deriving the point-check from the MSM = O2.)*
+- [x] **C1 decode logic.** `multiopen_decode_of_trees` etc. *(Wiring = O3.)*
+- [x] **A1–A3** (honesty docstrings, `ea8d3e9`), **D1** (`_vesta_C3`, `_vesta_full`), **E1**
+  (`nonInteractiveFingerprint_matches`), **F1** (de-staled `fv-review-checklist.md`).
+
+## 🔒 The legitimate named floor (standard crypto assumptions — not "open")
+- **Special-soundness rewinding** — acceptance → a distinct-challenge transcript tree (ROM/forking).
 - **Augmented binding** (`AugmentedBinding`: `g ∪ {U,W}` independent) — DLR hardness / AGM on the Pasta
-  generators, the standard binding assumption extended to `params.u`/`params.w`.
-- **The `z ≠ 0` binding challenge** and the **SZ good challenge `hgood`** — negligible-probability
-  challenge exclusions.
-- **VK-correctness** (`hencodes`, the assembly's gates/query layout = the Orchard circuit) and the **Vesta
-  curve order** (`Fact VestaOrder`).
+  generators (the plain-commitment reduction is proven; here extended to `params.u`/`params.w`, and assumed
+  for every folded family).
+- **Challenge exclusions** — `z ≠ 0` (no-`U`-interference) and the SZ good challenge `hgood` (`≤ deg/p`).
+- **VK-correctness** (`hencodes`, §3 — incl. O3's column-layout identification), **Vesta curve order**
+  (`Fact VestaOrder`), finite-field arithmetic.
+
+## Summary
+Closed: the U/W/S recursive opening soundness (`deployed_ipa_soundV`, kernel-clean, on-path), `P`/`b`/`v`
+pinning, and **O1** (the MSM↔IPA-equation structural correspondence — `deployed_verification_eq` — so the
+bridge is pure rewinding). What remains is **O2/O3**, the constraint/multiopen *assembly*-soundness
+workstream: it needs genuinely new modeling (the permutation/lookup constraints as polynomials for O2a; the
+two-layer multiopen + a batching-rewinding bridge for O3) and bottoms out at VK-correctness — not quick
+wiring, and comparable in size to the IPA weld itself. The soundness logic those would consume
+(`circuitSatViaGates_of_check`, `eval_combineGates`, `multiopen_decode_of_trees`) is already proven.
