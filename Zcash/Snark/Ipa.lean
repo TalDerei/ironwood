@@ -49,4 +49,37 @@ def ipaFold {F G : Type*} [Field F] {k : ℕ} (x v c f xi z : F) (u : List F)
   let m := m.addToWScalar (-f)
   m.addToGScalars (computeS u (-c))
 
+/-- The per-round `[uⱼ⁻¹] Lⱼ + [uⱼ] Rⱼ` fold contributes exactly `Σⱼ (uⱼ⁻¹ • Lⱼ + uⱼ • Rⱼ)` to the
+evaluation. By induction over the rounds, using `Msm.eval_appendTerm`. -/
+theorem eval_foldl_rounds {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (l : List ((G × G) × F)) (m0 : Msm srs.k F G) :
+    (l.foldl (fun acc p => (acc.appendTerm p.2⁻¹ p.1.1).appendTerm p.2 p.1.2) m0).eval srs
+      = m0.eval srs + (l.map (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum := by
+  induction l generalizing m0 with
+  | nil => simp
+  | cons a t ih =>
+    rw [List.foldl_cons, ih]
+    simp only [Msm.eval_appendTerm, List.map_cons, List.sum_cons]
+    abel
+
+/-- **The IPA opening's MSM is the IPA verification equation.** Evaluating the assembled IPA fingerprint
+against the SRS yields, in clean closed form, the incoming multiopen commitment plus the verifier's IPA
+contributions: `[-v]` at `g₀`, `[ξ] S`, the per-round `[uⱼ⁻¹] Lⱼ + [uⱼ] Rⱼ`, `[-c·b·z] U`, `[-f] W`, and
+`computeS u (-c)` (i.e. `[-c]` times the folded generators). The deployed accept (`eval … = 0`) is exactly
+this expression vanishing — a symbolic check of the §1 IPA assembly, complementing the one-proof
+`native_decide` match. Proven by `Msm.eval_*` distribution + `eval_foldl_rounds`. -/
+theorem eval_ipaFold {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (x v c f xi z : F) (u : List F) (S : G) (rounds : List (G × G))
+    (m : Msm srs.k F G) :
+    (ipaFold x v c f xi z u S rounds m).eval srs
+      = m.eval srs
+        + (∑ i, ([-v].getD i.val 0) • srs.g i)
+        + xi • S
+        + ((rounds.zip u).map (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum
+        + (-c * computeB x u * z) • srs.u
+        + (-f) • srs.w
+        + (∑ i, ((computeS u (-c)).getD i.val 0) • srs.g i) := by
+  simp only [ipaFold, Msm.eval_addToGScalars, Msm.eval_appendTerm, Msm.eval_addToUScalar,
+    Msm.eval_addToWScalar, eval_foldl_rounds]
+
 end Zcash.Snark

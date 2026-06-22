@@ -106,6 +106,34 @@ theorem eval_scale {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
   simp only [eval, scale, List.map_map, Function.comp_def, mul_smul, smul_add, Finset.smul_sum,
     smul_list_sum]
 
+/-- Appending a `(c, P)` term adds `c • P` to the evaluation. -/
+theorem eval_appendTerm {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (c : F) (P : G) (m : Msm srs.k F G) :
+    (m.appendTerm c P).eval srs = m.eval srs + c • P := by
+  simp only [eval, appendTerm, List.map_cons, List.sum_cons]
+  abel
+
+/-- Adding `c` to the inner-product-generator coefficient adds `c • u` to the evaluation. -/
+theorem eval_addToUScalar {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (c : F) (m : Msm srs.k F G) :
+    (m.addToUScalar c).eval srs = m.eval srs + c • srs.u := by
+  simp only [eval, addToUScalar, add_smul]
+  abel
+
+/-- Adding `c` to the blinding-generator coefficient adds `c • w` to the evaluation. -/
+theorem eval_addToWScalar {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (c : F) (m : Msm srs.k F G) :
+    (m.addToWScalar c).eval srs = m.eval srs + c • srs.w := by
+  simp only [eval, addToWScalar, add_smul]
+  abel
+
+/-- Adding a coefficient list to the SRS-generator scalars adds `∑ᵢ lᵢ • gᵢ` to the evaluation. -/
+theorem eval_addToGScalars {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (l : List F) (m : Msm srs.k F G) :
+    (m.addToGScalars l).eval srs = m.eval srs + ∑ i, (l.getD i.val 0) • srs.g i := by
+  simp only [eval, addToGScalars, add_smul, Finset.sum_add_distrib]
+  abel
+
 end Msm
 
 end Zcash.Snark
