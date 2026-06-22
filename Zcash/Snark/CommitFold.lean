@@ -77,6 +77,20 @@ theorem accepting_fold_eq {m : ℕ} (gLo gHi : Fin m → G) (aLo aHi a' : Fin m 
   apply hbind
   rw [haccept, commitGen_round gLo gHi aLo aHi hu]
 
+/-- The same binding step in the **extractor's fold convention** (`Zcash.Snark.foldVec`: witness folded by
+`u`, generators by `u⁻¹`): an accepting round response opening the folded commitment equals
+`foldVec aLo aHi u`. Taking `aLo := loHalf a`, `aHi := hiHalf a`, this is exactly `Zcash.Snark.roundFold a u`
+— the per-node condition of `Zcash.Snark.Consistent` — so it is the bridge from an accepting transcript to
+a consistent tree. Derived from `accepting_fold_eq` at `u⁻¹` (using `(u⁻¹)⁻¹ = u`). -/
+theorem accepting_fold_eq_foldVec {m : ℕ} (gLo gHi : Fin m → G) (aLo aHi a' : Fin m → F) {u : F}
+    (hu : u ≠ 0) (hbind : Function.Injective (commitGen (F := F) (gLo + u⁻¹ • gHi)))
+    (haccept : commitGen (gLo + u⁻¹ • gHi) a'
+      = (commitGen gLo aLo + commitGen gHi aHi) + u⁻¹ • commitGen gHi aLo + u • commitGen gLo aHi) :
+    a' = foldVec aLo aHi u := by
+  have key := accepting_fold_eq gLo gHi aLo aHi a' (u := u⁻¹) (inv_ne_zero hu) hbind (by rwa [inv_inv])
+  rw [inv_inv] at key
+  rwa [foldVec]
+
 /-! ## Binding as a discrete-log-relation hardness assumption
 
 Rather than *assuming* the commitment is binding outright, we model it as a **reduction** to a hardness
