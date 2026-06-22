@@ -209,4 +209,48 @@ theorem orchard_verifier_sound_deployed_C1 [DecidableEq G] [Inhabited G] {shape 
   obtain ⟨a, hrel⟩ := ipaRelation_of_acceptV srs b P v t ht
   exact hencodes a ⟨hrel, hcirc a hrel⟩
 
+/-! ## C3 closed: `circuitSat` is derived from the verifier's gate check + Schwartz–Zippel
+
+The constraint side mirrors C1. The verifier checks the gate identity only at the challenge `x` — a *point*
+check (`quotientCheck`, `numerator.eval x = h.eval x · (xⁿ−1)`). `circuitSatViaGates_of_check` lifts that
+point check to the polynomial identity `circuitSatViaGates` (the witness's decoded columns satisfy the
+gates) provided `x` avoids the Schwartz–Zippel bad set (`hgood`). So `circuitSat`, instantiated to the
+concrete `circuitSatViaGates`, is *derived* from the verifier's actual gate check — no black-box `hcirc`. -/
+
+open Polynomial in
+/-- **The deployed Orchard verifier is sound — C1 and C3 closed.** Both conjuncts of `SnarkRelation` are
+*derived*, not assumed: `IpaRelation` (the opening) from the transcript tree via `ipa_soundV` (C1); and
+`circuitSat` — instantiated to `circuitSatViaGates` — from the verifier's quotient/gate **point** check
+`hquot` at the challenge `x`, lifted to the polynomial identity by Schwartz–Zippel (`hgood`), via
+`circuitSatViaGates_of_check` (C3).
+
+The black-box `hcirc` is gone. What remains are the verifier's actual checks and the standard assumptions:
+the special-soundness rewinding tree (`hFS`), the gate point-check (`hquot`), the SZ good challenge
+(`hgood`), and VK-correctness (`hencodes`). `hquot`/`hgood` are the constraint-side analog of `hFS` — the
+gate check is part of `assemble.eval = 0` modulo the multiopen decode that ties the opened columns to it. -/
+theorem orchard_verifier_sound_deployed_C3 [DecidableEq G] [Inhabited G] {shape : Shape}
+    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
+    (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin (2 ^ srs.k) → Fp) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hFS : FiatShamirTree srs b P v (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ a, IpaRelation srs P b v a →
+      quotientCheck (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates) hpoly deg x)
+    (hgood : ∀ a, IpaRelation srs P b v a →
+      combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ a, SnarkRelation srs P b v
+      (circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg) a → S) :
+    S := by
+  obtain ⟨t, ht⟩ := hFS haccepts
+  obtain ⟨a, hrel⟩ := ipaRelation_of_acceptV srs b P v t ht
+  have hsat : circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg a :=
+    circuitSatViaGates_of_check fixedCols decodeAdvice decodeInstance y gates hpoly deg a x
+      (hquot a hrel) (hgood a hrel)
+  exact hencodes a ⟨hrel, hsat⟩
+
 end Zcash.Snark
