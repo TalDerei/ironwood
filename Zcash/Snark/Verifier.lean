@@ -72,6 +72,21 @@ def accumulateCommitment {k : ℕ} {F G : Type*} [Field F] (pow : F) (c : Commit
   | .point p => acc.appendTerm pow p
   | .msm m => acc.add (m.scale pow)
 
+/-- The group value a commitment reference contributes to the MSM: a point is itself; an MSM is its
+evaluation against the SRS. -/
+def CommitmentRef.eval {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G) :
+    CommitmentRef srs.k F G → G
+  | .point p => p
+  | .msm m => m.eval srs
+
+/-- Accumulating a commitment adds `pow • (its value)` to the evaluation. -/
+theorem eval_accumulateCommitment {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
+    (srs : SRS G) (pow : F) (c : CommitmentRef srs.k F G) (acc : Msm srs.k F G) :
+    (accumulateCommitment pow c acc).eval srs = acc.eval srs + pow • c.eval srs := by
+  cases c with
+  | point p => simp only [accumulateCommitment, CommitmentRef.eval, Msm.eval_appendTerm]
+  | msm m => simp only [accumulateCommitment, CommitmentRef.eval, Msm.eval_add, Msm.eval_scale]
+
 /-- The multiopen `x₁` compression (`multiopen/verifier.rs`): for each point set, fold its commitments
 (in processing order) into `Σⱼ x₁ʲ · cⱼ`. `sets` lists, per point set, the commitments grouped into it by
 `construct_intermediate_sets` (taken as input — it is VK-fixed bookkeeping). -/
