@@ -29,13 +29,16 @@ open Polynomial
 
 variable {G : Type*} [AddCommGroup G] [Module Fp G]
 
-/-- **The deployed accept IS the IPA verification equation, with `G'₀ = foldAll` explicit (closes O1's
-structural correspondence).** `eval_assembleFinalMsm` gives the assembled MSM in closed form; rewriting its
-`computeS` generator term via `deployed_gterm_foldAll` exhibits it as `[-c]·foldAll` — the folded generator
-`G'₀`. So the deployed accept (`assemble.eval = 0`) is exactly halo2's IPA verifier equation
-`P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀ = 0` for the multiopen commitment/value, with the
-generator fold *proven* (not assumed). The `DeployedIpaRewind` bridge's only residual is then the pure
-rewinding of this equation into the 3-ary transcript tree. -/
+/-- **The deployed accept IS the IPA verification equation, with `G'₀ = foldAll` explicit.**
+`eval_assembleFinalMsm` gives the assembled MSM in closed form; rewriting its `computeS` generator term via
+`deployed_gterm_foldAll` exhibits it as `[-c]·foldAll` — the folded generator `G'₀`. So `assemble.eval` is
+exactly halo2's IPA verifier equation `P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀` for the
+multiopen commitment/value, with the generator fold *proven* (not assumed).
+
+**Honest scope:** this lemma is currently a **sidecar** — it is not composed into `DeployedIpaRewind`, which
+posits the `DeployedIpaAcceptV` tree directly. It proves the *flat* MSM↔IPA-equation correspondence; what it
+does **not** yet do is derive the recursive tree's node/leaf checks from this equation (the flat↔recursive
+forking reduction). So it does not, on its own, reduce the bridge to pure rewinding. -/
 theorem deployed_verification_eq {shape : Shape} (g : Fin (2 ^ shape.k) → G) (w u : G)
     (ps : ProofString shape Fp G) (ch : Challenges shape.k Fp)
     (grouped : MultiopenGrouped shape.k Fp G) :
@@ -68,13 +71,18 @@ theorem ipaRelation_of_deployedAcceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp
   · have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
     rw [hib]; exact hv
 
-/-- **The deployed verifier's IPA bridge — the *pure* special-soundness rewinding.** Acceptance yields a
-*deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying `U`/`W`/`S`) for the proof's eval vector `b`,
-commitment `P` and value `v`. Unlike `FiatShamirTree`, this no longer absorbs any provable content: the
-`U`/`W`/`S` separation is proven (`deployed_ipa_soundV`), and the structural correspondence — that
-`assemble.eval = 0` *is* halo2's IPA verifier equation with `G'₀ = foldAll` and `b = compute_b` — is proven
-(`deployed_verification_eq`, citing `deployed_gterm_foldAll`/`computeB_eq`). Its sole residual content is the
-rewinding of that (proven) equation into a distinct-challenge tree — the irreducible ROM/forking floor. -/
+/-- **The deployed verifier's IPA bridge — rewinding PLUS a proven-but-unwired structural correspondence
+(honest scope).** Acceptance yields a *deployed* IPA transcript tree (`DeployedIpaAcceptV`, carrying
+`U`/`W`/`S`) for the proof's eval vector `b`, commitment `P` and value `v`. What is genuinely peeled *on the
+path*: the `U`/`W`/`S` separation — `deployed_ipa_soundV` consumes this tree and discharges it. What this
+bridge **still bundles**, beyond the rewinding: the MSM↔tree correspondence — that `assemble.eval = 0`
+actually unfolds into the tree's per-node folds and leaf equations for the proof's real `P,b,L,R`.
+`deployed_verification_eq` proves the *flat* half of that (`assemble.eval` = halo2's IPA verifier equation
+with `G'₀ = foldAll`, `b = compute_b`), but it is **not composed in here** — this bridge posits the tree
+wholesale (`deployed_verification_eq` is currently a sidecar). Reducing the bridge to genuinely pure rewinding
+needs that lemma threaded in so the node checks are *derived* from the verification equation (the
+flat↔recursive forking reduction), which is **not done**. Residual = rewinding (floor) + this proven-but-unwired
+correspondence. -/
 def DeployedIpaRewind (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (z : Fp) (P : G) (v : Fp)
     (accepts : Prop) : Prop :=
   accepts → ∃ (blind : Fp) (t : DeployedIpaTreeV Fp G srs.k),
@@ -212,17 +220,24 @@ theorem orchard_verifier_sound_deployed_pinned {shape : Shape}
   orchard_verifier_sound_deployed_full (⟨shape.k, g, w, u⟩ : SRS G) rfl vk ps ch fixedCols
     decodeAdvice decodeInstance y gates hpoly deg xc hbind hz haccepts hrewind hquot hgood hencodes
 
-/-! ## Fully closed capstone — opening, decode, and constraint all derived (O2 + O3)
+/-! ## Capstone wiring the opening, the decode, and the SZ constraint lift (O2 + O3) — honest residual
 
-`orchard_verifier_sound_deployed_closed` derives all three soundness ingredients from the deployed accept:
-the IPA opening (`ipaRelation_of_deployedAcceptV`, `U`/`W`/`S` peeled), the per-column decode
-(`decoded_columns_of_accept` — `decodeAdvice`/`decodeInstance` now act on the *genuinely recovered* columns,
-not free functions), and the gate constraint (`circuitSatViaGates_of_check` lifting the gate point-check
-`hquot` on those columns to the identity via Schwartz–Zippel `hgood`). The residual is exactly the named
-floor: the two rewinding bridges (`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0`, the gate
-point-check + SZ good challenge (`hquot`/`hgood` — VK-correctness on the recovered columns + SZ), and
-VK-correctness (`hencodes`, which also carries the multiopen-combination link between the IPA witness `a` and
-the decoded columns, the one structural fact not modeled here). -/
+`orchard_verifier_sound_deployed_closed` composes three derivations from the deployed accept: the IPA opening
+(`ipaRelation_of_deployedAcceptV`, `U`/`W`/`S` peeled — genuinely on-path), the per-column decode
+(`decoded_columns_of_accept` — `decodeAdvice`/`decodeInstance` act on the *genuinely recovered* columns, not
+free functions), and the Schwartz–Zippel lift of the gate point-check (`circuitSatViaGates_of_check`).
+
+**This is NOT closed to the irreducible cryptographic floor.** Its residual is the legitimate floor —
+the two rewinding bridges (`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0` — **plus three
+provable-but-unmodeled facts folded into the remaining hypotheses:**
+1. **`hquot` (the gate point-check) is assumed, not derived** from the vanishing-argument part of the MSM. A
+   from-scratch derivation needs the permutation/lookup arguments modeled as polynomials (`combineGates`
+   covers only the gates; `expectedHEval` folds gates ++ perm ++ lookup) — the §3 circuit-encoding workstream.
+2. **The `a`↔`col` link is not modeled**: the IPA witness `a` and the decoded columns `col` are extracted
+   independently and both handed to `hencodes`; that they are the same data via the multiopen combination is
+   carried by `hencodes` (VK-correctness), not proven here.
+3. **The flat↔tree correspondence is not wired** (see `DeployedIpaRewind`): `hIpa`/`hMulti` posit the trees
+   wholesale rather than deriving them from `deployed_verification_eq`. -/
 open Polynomial in
 theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)

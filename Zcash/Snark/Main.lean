@@ -120,46 +120,6 @@ theorem orchard_sound_via_transcript (srs : SRS G)
     rw [hext]; exact ⟨hopen, hsat⟩
   exact hencodes hrel
 
-/-- **The extraction bridge from deployed acceptance — bundles THREE assumptions (not "minimal FS").** A
-deployed accepting proof yields a witness tree that is `Accepting` (the rewinding/forking step — genuine
-Fiat–Shamir), **and** whose root response opens the commitment (`IpaRelation`), **and** satisfies the
-circuit (`circuitSat`).
-
-The latter two conjuncts are **assumed here, not derived.** `Accepting srs.g wt` is defined over `srs.g`
-and the tree's internal fold-consistency *only* — it never mentions `P`, `b`, `v` — so it cannot imply
-`IpaRelation srs P b v wt.witness`; circuit-satisfaction is likewise separate. Deriving them from deployed
-acceptance is the open C1 work: `Zcash.Snark.eval_ipaFold` (the IPA verification equation) is the lever for
-the opening, `circuitSatViaGates_of_check` for the constraint. Until those land and these conjuncts are
-removed, the IPA knowledge-soundness conclusion + the constraint are part of the assumption, not proven. -/
-def ExtractableFromDeployedAccept (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
-    (circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop) (accepts : Prop) : Prop :=
-  accepts → ∃ wt : WTree Fp srs.k,
-    Accepting srs.g wt ∧ IpaRelation srs P b v wt.witness ∧ circuitSat wt.witness
-
-/-- **The deployed Orchard verifier is sound — CONDITIONAL on the extraction bridge.** From the deployed
-accept condition (`haccepts : DeployedAccepts`, i.e. `assemble.eval srs = 0`) and the bridge `hbridge`, plus
-the VK encoding the statement (`hencodes`), conclude the high-level statement `S`.
-
-**Conditional, and `hbridge` bundles unproven content.** `ExtractableFromDeployedAccept` assumes the
-rewinding (genuine FS) **and** the IPA opening (`IpaRelation`) **and** circuit-satisfaction — and the latter
-two are *not* derived from `DeployedAccepts` here (its content is only the trigger fed to `hbridge`; the MSM
-equation is never inspected). What *is* proven on the path: rewinding's `Accepting` tree extracts the
-witness (`accepting_extract`), so the conclusion is about the *extracted* witness. **Genuinely closing C1**
-means deriving `IpaRelation` and `circuitSat` from `DeployedAccepts` (via `eval_ipaFold` and
-`circuitSatViaGates_of_check`) and *removing* those conjuncts from the bridge — open work; until then this
-is the honest conditional form. **Superseded** by `orchard_verifier_sound_deployed_C1` (opening derived via
-`ipa_soundV`) and `orchard_verifier_sound_deployed_C3` (constraint derived); prefer those. -/
-theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {shape : Shape}
-    (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
-    (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
-    {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
-    (haccepts : DeployedAccepts srs hk vk ps ch)
-    (hbridge : ExtractableFromDeployedAccept srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
-    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
-    S := by
-  obtain ⟨wt, haccept, hopen, hsat⟩ := hbridge haccepts
-  exact orchard_sound_via_transcript srs wt haccept hopen hsat (hencodes (extract wt.toTree))
-
 /-! ## C1 closed: `IpaRelation` is derived from the transcript tree, not assumed
 
 `Zcash.Snark.ipa_soundV` derives the *full* opening relation — `commit g a = P` **and** `⟨a,b⟩ = v` — from
@@ -182,13 +142,14 @@ theorem ipaRelation_of_acceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G
   rw [hib]; exact hv
 
 /-- **The transcript-tree bridge — SUPERSEDED by `Zcash.Snark.DeployedIpaRewind`.** Acceptance yields a
-*clean* `IpaAcceptV` tree. This still absorbed two things beyond the rewinding: (i) the MSM↔tree structural
-correspondence and (ii) the `U`/`W`/`S` separation (since `IpaAcceptV` is the blinding-free IPA). Both are
-now **proven**: the generator/value fold correspondence (`foldAll = G'₀`, `compute_b = ⟨sFun, evalVector⟩`,
-`Zcash.Snark.IpaDeployed`) and the `U`/`W`/`S` peeling onto `ipa_soundV` (`Zcash.Snark.deployed_ipa_soundV`).
-`DeployedIpaRewind` (`Zcash.Snark.Weld`) is the replacement bridge — the *pure* rewinding to the *deployed*
-`U`/`W`/`S`-carrying tree (`DeployedIpaAcceptV`), with nothing else bundled. Prefer the capstones
-`orchard_verifier_sound_deployed_full` / `_pinned` over the `_C1`/`_C3` theorems that use this. -/
+*clean* `IpaAcceptV` tree. This absorbed two things beyond the rewinding: (i) the MSM↔tree structural
+correspondence and (ii) the `U`/`W`/`S` separation (since `IpaAcceptV` is the blinding-free IPA). Of these,
+(ii) is now genuinely *proven and on-path* (`Zcash.Snark.deployed_ipa_soundV`), and the flat half of (i) is
+proven (`foldAll = G'₀`, `compute_b = ⟨sFun, evalVector⟩`; `deployed_verification_eq`). `DeployedIpaRewind`
+(`Zcash.Snark.Weld`) is the replacement bridge — but it is **not yet** pure rewinding: it still bundles the
+MSM↔tree correspondence (the proven flat fact is a sidecar, not composed in — see its docstring). Prefer the
+capstones `orchard_verifier_sound_deployed_full`/`_pinned`/`_closed` over the `_C1`/`_C3` theorems that use
+this, but read their honest residual notes. -/
 def FiatShamirTree (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (P : G) (v : Fp) (accepts : Prop) : Prop :=
   accepts → ∃ t : IpaTreeV Fp G srs.k, IpaAcceptV srs.g b P v t
 
@@ -198,9 +159,11 @@ the *only* IPA assumption), and the circuit-satisfaction of the opening (`hcirc`
 checklist C3, dischargeable by `circuitSatViaGates_of_check`), conclude `S`.
 
 The IPA opening (`IpaRelation`) is **derived** here via `ipaRelation_of_acceptV`/`ipa_soundV` — it is no
-longer assumed (contrast `orchard_verifier_sound_deployed_final`, whose bridge bundled it). Honest scope:
+longer assumed (the earlier conditional bridges that bundled it have been removed). Honest scope:
 `hFS` still absorbs the MSM↔tree correspondence + `P,b,v` pinning (see `FiatShamirTree`; checklist B), and
 `hcirc` is the assumed constraint side — `orchard_verifier_sound_deployed_C3` derives it from the gate check.
+Superseded by `orchard_verifier_sound_deployed_full`/`_closed` (`Zcash.Snark.Weld`), which peel `U`/`W`/`S`
+and wire the multiopen decode; prefer those.
 Named assumptions: the bridge (`hFS`), the constraint side (`hcirc`, C3), DLR hardness (for *uniqueness*,
 unused on this path), and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_deployed_C1 [DecidableEq G] [Inhabited G] {shape : Shape}

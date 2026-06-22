@@ -106,18 +106,19 @@ The IPA / multiopen / constraint **soundness logic is fully proven** (binding-fr
   `compute_b = ⟨sFun u 1, evalVector x⟩`, faithful to the Rust. **The capstone** (`Zcash/Snark/Weld.lean`):
   `orchard_verifier_sound_deployed_full` / `_pinned` (+ Vesta `_vesta_full`) derive both conjuncts of
   `SnarkRelation` with `P`/`b`/`v` pinned to the §1 assembly.
-- **PROVEN — O1 (`s2-wiring-checklist.md`):** `deployed_verification_eq` proves the flat deployed accept IS
-  halo2's IPA verifier equation with `G'₀ = foldAll` explicit (via `deployed_gterm_foldAll`), so the
-  structural correspondence is no longer bundled — `DeployedIpaRewind`'s residual is the pure rewinding.
-- **PROVEN — O2/O3 closed to the floor (`s2-wiring-checklist.md`):** O3 — `multiopen_decode_deployed` /
-  `decoded_columns_of_accept` recover the per-column openings from the batching rewinding (proven decode), so
-  `decodeAdvice`/`decodeInstance` act on the recovered columns. O2 — `orchard_verifier_sound_deployed_closed`
-  (+ Vesta `_vesta_closed`) derives the gate constraint on those columns via `circuitSatViaGates_of_check`
-  (SZ lift). Honest caveat: `hquot` is the verifier's vanishing check on the recovered columns (VK-correctness,
-  not from-scratch derivation), and a fully-derived `hquot` would additionally need the permutation/lookup
-  arguments modeled as polynomials (`combineGates` covers only the gates — the §3 circuit-encoding workstream).
+- **PARTIAL — O1 (`s2-wiring-checklist.md`):** `deployed_verification_eq` proves the flat deployed accept IS
+  halo2's IPA verifier equation with `G'₀ = foldAll`. But (per review, accurate) it is a **sidecar** — not
+  composed into `DeployedIpaRewind`, which still posits the tree wholesale. So the bridge still bundles the
+  flat↔tree correspondence; reducing it to pure rewinding needs the forking reduction (not done).
+- **PARTIAL — O2/O3 (`s2-wiring-checklist.md`):** O3 — `decoded_columns_of_accept` recovers the per-column
+  openings on-path (proven decode), but the IPA witness `a` and the columns `col` are not linked (the
+  multiopen combination is carried by `hencodes`). O2 — `circuitSatViaGates_of_check` lifts `hquot` via SZ
+  (on-path), but `hquot` itself is **assumed**, not derived from the vanishing argument (needs the
+  permutation/lookup arguments modeled as polynomials — the §3 workstream). So `orchard_verifier_sound_deployed_closed`
+  is **not** closed to the irreducible floor; its residual is the floor + these unmodeled facts.
 
-What remains is exactly the standard, named cryptographic floor:
+What remains is the standard named cryptographic floor PLUS the unmodeled facts above (O1 flat↔tree wiring,
+O2 hquot derivation, the a↔col link):
 - **Special-soundness rewinding** (`DeployedIpaRewind`: accept → distinct-challenge tree) — irreducible ROM.
 - **Augmented binding** (`AugmentedBinding`: `g ∪ {U,W}` independent) — DLR hardness / AGM on the Pasta
   generators (reduction proven for the plain commitment; extended to `params.u`/`params.w`).

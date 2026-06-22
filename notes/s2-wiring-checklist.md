@@ -6,45 +6,48 @@ flagged that the **weld** from the deployed flattened `assemble.eval = 0` to tho
 still *assumed* (bundled in the bridge + the C3 hypotheses).
 
 The headline result is proven: the recursive IPA opening soundness over halo2's **concrete `U`/`W`/`S`
-structure** (`deployed_ipa_soundV`). The three follow-up wiring items O1/O2/O3 are now **all closed to the
-named floor** — `orchard_verifier_sound_deployed_closed` (+ Vesta `_vesta_closed`) derives the opening, the
-per-column decode, and the gate constraint from the deployed accept. The residual is exactly the standard
-floor (two rewinding bridges, binding, SZ, VK-correctness); see the honest caveat under O2.
+structure** (`deployed_ipa_soundV`, genuinely on-path). `orchard_verifier_sound_deployed_closed` (+ Vesta
+`_vesta_closed`) composes it with the multiopen decode and the SZ constraint lift.
 
-Legend: ✅ proven & on the capstone path · 🔒 named standard floor (won't be eliminated) · ✍ docs.
+**Honest status (do not overclaim "closed to floor").** A round of review correctly showed the capstone is
+*not* closed to the irreducible cryptographic floor. Its residual = the legitimate floor (two rewinding
+bridges, binding, SZ, VK-correctness) **plus three provable-but-unmodeled facts**: (O1) the MSM↔tree
+correspondence is proven *flat* (`deployed_verification_eq`) but is a **sidecar** — not composed into the
+bridge, which posits the tree wholesale; (O2) `hquot` (the gate point-check) is **assumed**, not derived from
+the vanishing argument; (O3-link) the IPA witness `a` and the decoded columns `col` are **not linked** (the
+multiopen combination is carried by `hencodes`). What *is* genuinely done is marked below.
 
-## ✅ O1 — CLOSED (structural correspondence proven; bridge = pure rewinding)
+Legend: ✅ proven & on-path · ◑ partial (proven core, residual noted) · 🔒 named standard floor · ✍ docs.
 
-- [x] **O1.** `deployed_gterm_foldAll` (`Zcash/Snark/IpaDeployed`) resolves the `List.ofFn`-length↔`m` cast,
-  so the assembly's `computeS` generator term equals `[-c]·foldAll`. `deployed_verification_eq`
-  (`Zcash/Snark/Weld`) then proves the flat deployed accept (`assembleFinalMsm.eval`) **is** halo2's IPA
-  verifier equation `P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀` with `G'₀ = foldAll` explicit,
-  for the multiopen commitment/value. So the MSM↔(IPA equation) structural correspondence is **proven**, not
-  bundled; `DeployedIpaRewind`'s sole residual is the rewinding of that proven equation into the 3-ary tree
-  (the ROM floor). The fold facts are on the proven deployed-accept path. [R3-a.i]
+## ◑ O1 — structural fact PROVEN, but a sidecar (not wired into the bridge)
 
-## ✅ O3 — CLOSED (the multiopen decode wired to acceptance)
+- [~] **O1.** `deployed_gterm_foldAll` (`Zcash/Snark/IpaDeployed`) resolves the `List.ofFn`-length↔`m` cast,
+  and `deployed_verification_eq` (`Zcash/Snark/Weld`) proves the flat deployed accept (`assembleFinalMsm.eval`)
+  **is** halo2's IPA verifier equation `P' + Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) + [-c·b·z]U + [-f]W + [-c]G'₀` with
+  `G'₀ = foldAll`. So the *flat* MSM↔IPA-equation correspondence is **proven**. **But it is a sidecar**: it is
+  not composed into `DeployedIpaRewind`, which still posits the `DeployedIpaAcceptV` tree wholesale. Reducing
+  the bridge to pure rewinding needs the lemma threaded in so the tree's node/leaf checks are *derived* from
+  the verification equation — the flat↔recursive forking reduction, **not done**. [R3-a.i]
 
-- [x] **O3.** `multiopen_decode_deployed` (`Zcash/Snark/Multiopen`) composes `deployed_ipa_soundV` (the
-  `U`/`W`/`S`-peeled opening at each batching challenge) with `batch_open_soundV` (the Vandermonde decode);
-  `DeployedMultiopenRewind` + `decoded_columns_of_accept` (`Zcash/Snark/Weld`) derive the per-column openings
-  `∃ col, ∀ i, commit srs col_i = C i ∧ ⟨col_i, b⟩ = e i` from acceptance. So `decodeAdvice`/`decodeInstance`
-  act on the **genuinely recovered** columns, not free functions. Residual floor 🔒: the batching rewinding
-  (`DeployedMultiopenRewind`, a ROM/forking bridge — the analog of the IPA `DeployedIpaRewind`) and the
-  identification of decoded columns with the circuit's columns (VK-correctness). [R3-c, R1-b]
+## ◑ O3 — decode WIRED on-path; the `a`↔`col` link not modeled
 
-## ✅ O2 — CLOSED to the floor (constraint derived from the recovered columns)
+- [~] **O3.** `multiopen_decode_deployed` (`Zcash/Snark/Multiopen`) composes `deployed_ipa_soundV` with
+  `batch_open_soundV`; `DeployedMultiopenRewind` + `decoded_columns_of_accept` (`Zcash/Snark/Weld`) derive the
+  per-column openings `∃ col, ∀ i, commit srs col_i = C i ∧ ⟨col_i, b⟩ = e i` from acceptance — genuinely
+  on-path, so `decodeAdvice`/`decodeInstance` act on the recovered columns, not free functions. **Residual:**
+  the batching rewinding (`DeployedMultiopenRewind`, a ROM bridge) 🔒; the column↔circuit identification
+  (VK-correctness) 🔒; and — flagged by review — the IPA witness `a` and the decoded `col` are extracted
+  **independently** and not linked (the multiopen combination `a = Σ x₄ⁱ·(Σ x₁ʲ col)` is not modeled; carried
+  by `hencodes`). [R3-c, R1-b]
 
-- [x] **O2.** `orchard_verifier_sound_deployed_closed` (`Zcash/Snark/Weld`, + Vesta `_vesta_closed`) derives
-  the gate constraint on the **decoded** columns: `circuitSatViaGates_of_check` lifts the gate point-check
-  `hquot` (on the recovered `col`) to the polynomial identity via Schwartz–Zippel `hgood`. So the constraint
-  side is on the path, over the columns the decode (O3) recovers. Residual floor 🔒: SZ (`hgood`) and
-  VK-correctness — `hquot` (the gate point-check on `col`) is the verifier's vanishing check expressed on the
-  recovered columns. **Honest caveat:** `hquot` is taken as VK-correctness, not yet *derived* from the
-  decoded `h`-column. Two things sit inside that VK floor: (i) `combineGates` models the **gate** constraints
-  only, whereas `expectedHEval` folds `gates ++ permutation ++ lookup` — fully deriving `hquot` first needs
-  the permutation/lookup arguments lifted to polynomials (the §3 circuit-encoding workstream); (ii) the
-  multiopen-combination link between the IPA witness `a` and the columns `col` is carried by `hencodes`.
+## ◑ O2 — SZ lift PROVEN & on-path; `hquot` still assumed (§3 territory)
+
+- [~] **O2.** `orchard_verifier_sound_deployed_closed` (`Zcash/Snark/Weld`, + Vesta `_vesta_closed`) lifts the
+  gate point-check `hquot` on the recovered columns to the polynomial identity via Schwartz–Zippel
+  (`circuitSatViaGates_of_check`/`hgood`) — proven and on-path. **But `hquot` itself is assumed**, not derived
+  from the vanishing-argument part of the MSM. A from-scratch derivation needs (i) the permutation/lookup
+  arguments lifted to polynomials (`combineGates` covers only gates; `expectedHEval` folds gates ++ perm ++
+  lookup) — the §3 circuit-encoding workstream — and (ii) the decoded `h`-column connected to `expectedHEval`.
   [R1-a, R2-a, R3-d.3]
 
 ## ✅ Proven & on the capstone path
@@ -74,20 +77,15 @@ Legend: ✅ proven & on the capstone path · 🔒 named standard floor (won't be
   (`Fact VestaOrder`), finite-field arithmetic.
 
 ## Summary
-All of O1/O2/O3 are now closed to the named floor, with `orchard_verifier_sound_deployed_closed`
-(+ Vesta `_vesta_closed`) deriving the opening, the per-column decode, and the gate constraint from the
-deployed accept:
-- **O1** — `deployed_verification_eq`: the flat accept IS halo2's IPA equation with `G'₀ = foldAll`; bridge =
-  pure rewinding.
-- **O3** — `multiopen_decode_deployed` / `decoded_columns_of_accept`: the columns are recovered from the
-  batching rewinding (proven decode); `decodeAdvice`/`decodeInstance` act on them.
-- **O2** — `circuitSatViaGates_of_check` lifts the gate point-check on the recovered columns to the identity
-  (SZ). The constraint side is on the path.
+What is genuinely proven and on the capstone path: the `U`/`W`/`S` recursive opening soundness
+(`deployed_ipa_soundV`), the multiopen decode (`multiopen_decode_deployed`/`decoded_columns_of_accept`), and
+the SZ constraint lift (`circuitSatViaGates_of_check`). What is proven but **off-path (sidecar)**: the flat
+MSM↔IPA-equation correspondence (`deployed_verification_eq`). `orchard_verifier_sound_deployed_closed`
+(+ Vesta `_vesta_closed`) composes the on-path pieces.
 
-The remaining trust boundary is the standard named floor: the IPA + batching **rewinding** bridges, the
-**augmented binding** (DLR/AGM), the **challenge exclusions** (`z ≠ 0`, SZ), and **VK-correctness**. Note
-VK-correctness now legitimately carries more weight on the constraint side: `hquot` (the gate point-check) is
-the verifier's vanishing check on the recovered columns rather than a from-scratch derivation, and a *fully*
-derived `hquot` would additionally require the permutation/lookup arguments modeled as polynomials (the §3
-circuit-encoding workstream — `combineGates` currently covers only the gates). The soundness *logic*
-(`deployed_ipa_soundV`, `multiopen_decode_deployed`, `circuitSatViaGates_of_check`) is all proven and wired.
+What is **NOT** closed (per review — accurate): the capstone is not closed to the *irreducible* floor. Its
+residual = the legitimate floor (two rewinding bridges, augmented binding, `z ≠ 0`, SZ, VK-correctness)
+**plus** three provable-but-unmodeled facts: O1 the flat↔tree correspondence is not wired into the bridge
+(forking reduction); O2 `hquot` is assumed, not derived (needs the perm/lookup polynomial modeling, §3); the
+`a`↔`col` multiopen-combination link is not modeled (carried by `hencodes`). Each is substantial modeling
+(comparable to the IPA weld), not quick wiring — and O2 bottoms out at the §3 circuit-encoding workstream.
