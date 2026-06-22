@@ -228,4 +228,86 @@ theorem commitGen_eq_innerProduct {n : ℕ} (b a : Fin n → F) :
     commitGen b a = ∑ i, a i * b i := by
   simp only [commitGen, smul_eq_mul]
 
+/-! ## The multiopen batch decode
+
+The deployed verifier batches the per-column commitments by powers of a challenge `z` (the `x₁`/`x₄`
+folds), opens the *single* batched commitment, and the inner-product argument extracts the *combined*
+witness. To recover the *individual* column openings — what the gate check needs — one rewinds the batching
+challenge and solves a Vandermonde system over `n` distinct `z`'s: exactly the `ipa_soundV` technique one
+layer up, but with no cross terms (the batch is a plain linear combination), so a single `n`-point
+Vandermonde inverse suffices. -/
+
+/-- **General Vandermonde inverse.** For `n` distinct points `z`, there are coefficients `μ` with
+`Σ_k μ i k · (z k)ʲ = δ_{i,j}` — the functional reading off the `i`-th coefficient of a degree-`<n`
+polynomial from its `n` samples. (The `n = 3` special case is `vandermonde3`.) From invertibility of the
+Vandermonde matrix (`det = ∏_{i<j}(z j − z i) ≠ 0` for distinct points). -/
+theorem vandermonde_inv {n : ℕ} (z : Fin n → F) (hz : Function.Injective z) :
+    ∃ μ : Fin n → Fin n → F, ∀ (i j : Fin n), (∑ k, μ i k * z k ^ (j : ℕ)) = if i = j then 1 else 0 := by
+  have hdet : (Matrix.vandermonde z).det ≠ 0 := by
+    rw [Matrix.det_vandermonde, Finset.prod_ne_zero_iff]
+    intro i _
+    rw [Finset.prod_ne_zero_iff]
+    intro j hj
+    rw [Finset.mem_Ioi] at hj
+    exact sub_ne_zero.mpr (fun h => absurd (hz h) (ne_of_lt hj).symm)
+  refine ⟨fun i k => (Matrix.vandermonde z)⁻¹ i k, fun i j => ?_⟩
+  have hmul : (Matrix.vandermonde z)⁻¹ * Matrix.vandermonde z = 1 :=
+    Matrix.nonsing_inv_mul _ (isUnit_iff_ne_zero.mpr hdet)
+  have h2 := congrFun (congrFun hmul i) j
+  rw [Matrix.mul_apply] at h2
+  simpa only [Matrix.vandermonde_apply, Matrix.one_apply] using h2
+
+/-- A length-`m` commitment is additive over a finite sum of witnesses. -/
+theorem commitGen_sum {m : ℕ} (g : Fin m → G) {ι : Type*} (s : Finset ι) (f : ι → Fin m → F) :
+    commitGen g (∑ k ∈ s, f k) = ∑ k ∈ s, commitGen g (f k) := by
+  classical
+  induction s using Finset.induction with
+  | empty => simp [commitGen]
+  | insert a s ha ih => rw [Finset.sum_insert ha, Finset.sum_insert ha, commitGen_add_left, ih]
+
+/-- **Batch-opening soundness — explicit witness.** Given the batched openings
+`commit g (a k) = Σⱼ (z k)ʲ · C j` at the `n` challenges and the Vandermonde coefficients `μ`, the explicit
+combination `Σ_k μ i k · a k` opens the `i`-th individual commitment: `commit g (Σ_k μ i k · a k) = C i`. -/
+theorem batch_open_with_coeffs {m n : ℕ} (g : Fin m → G) (C : Fin n → G) (z : Fin n → F)
+    (a : Fin n → (Fin m → F)) (μ : Fin n → Fin n → F)
+    (hμ : ∀ (i j : Fin n), (∑ k, μ i k * z k ^ (j : ℕ)) = if i = j then 1 else 0)
+    (ha : ∀ k, commitGen g (a k) = ∑ j : Fin n, z k ^ (j : ℕ) • C j) (i : Fin n) :
+    commitGen g (∑ k, μ i k • a k) = C i := by
+  rw [commitGen_sum]
+  simp only [commitGen_smul_left, ha, Finset.smul_sum, smul_smul]
+  rw [Finset.sum_comm]
+  simp only [← Finset.sum_smul, hμ, ite_smul, one_smul, zero_smul, Finset.sum_ite_eq,
+    Finset.mem_univ, if_true]
+
+/-- **The multiopen batch decode is sound.** From the batched commitment/value openings at `n` distinct
+challenges, each individual column has a single witness opening it to its commitment `C i` *and* giving its
+claimed evaluation `e i`: `∃ col, ∀ i, commit g (col i) = C i ∧ ⟨col i, b⟩ = e i`. The same explicit
+Vandermonde combination serves both (the value side is `batch_open_with_coeffs` at `G := F`,
+`commit b = ⟨·,b⟩`). This recovers the per-column openings the gate check (`circuitSatViaGates`) consumes —
+the multiopen decode, derived. -/
+theorem batch_open_soundV {m n : ℕ} (g : Fin m → G) (b : Fin m → F) (C : Fin n → G) (e : Fin n → F)
+    (z : Fin n → F) (hz : Function.Injective z) (a : Fin n → (Fin m → F))
+    (haC : ∀ k, commitGen g (a k) = ∑ j : Fin n, z k ^ (j : ℕ) • C j)
+    (hae : ∀ k, commitGen b (a k) = ∑ j : Fin n, z k ^ (j : ℕ) • e j) :
+    ∃ col : Fin n → (Fin m → F), ∀ i, commitGen g (col i) = C i ∧ commitGen b (col i) = e i := by
+  obtain ⟨μ, hμ⟩ := vandermonde_inv z hz
+  exact ⟨fun i => ∑ k, μ i k • a k, fun i =>
+    ⟨batch_open_with_coeffs g C z a μ hμ haC i, batch_open_with_coeffs b e z a μ hμ hae i⟩⟩
+
+/-- **The full two-layer decode: per-column openings from the IPA trees.** Given, for each of the `n`
+distinct batching challenges `z k`, an accepting IPA transcript tree opening the *batched* commitment
+`Σⱼ (z k)ʲ·C j` to the batched value `Σⱼ (z k)ʲ·e j`, every individual column opens to its commitment and
+its claimed evaluation. Composes `ipa_soundV` (the IPA opening at each rewound `z k`) with
+`batch_open_soundV` (the Vandermonde decode), all binding-free. This is the multiopen knowledge soundness
+the gate check sits on top of. -/
+theorem multiopen_decode_of_trees {d n : ℕ} (g : Fin (2 ^ d) → G) (b : Fin (2 ^ d) → F)
+    (C : Fin n → G) (e : Fin n → F) (z : Fin n → F) (hz : Function.Injective z)
+    (t : Fin n → IpaTreeV F G d)
+    (ht : ∀ k, IpaAcceptV g b (∑ j : Fin n, z k ^ (j : ℕ) • C j)
+      (∑ j : Fin n, z k ^ (j : ℕ) • e j) (t k)) :
+    ∃ col : Fin n → (Fin (2 ^ d) → F), ∀ i, commitGen g (col i) = C i ∧ commitGen b (col i) = e i := by
+  choose a hac hae using fun k => ipa_soundV g b (∑ j : Fin n, z k ^ (j : ℕ) • C j)
+    (∑ j : Fin n, z k ^ (j : ℕ) • e j) (t k) (ht k)
+  exact batch_open_soundV g b C e z hz a hac hae
+
 end Zcash.Snark
