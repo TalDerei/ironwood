@@ -106,18 +106,15 @@ The IPA / multiopen / constraint **soundness logic is fully proven** (binding-fr
   `compute_b = ⟨sFun u 1, evalVector x⟩`, faithful to the Rust. **The capstone** (`Zcash/Snark/Weld.lean`):
   `orchard_verifier_sound_deployed_full` / `_pinned` (+ Vesta `_vesta_full`) derive both conjuncts of
   `SnarkRelation` with `P`/`b`/`v` pinned to the §1 assembly.
-- **PARTIAL — O1 (`s2-wiring-checklist.md`):** `deployed_verification_eq` proves the flat deployed accept IS
-  halo2's IPA verifier equation with `G'₀ = foldAll`. But (per review, accurate) it is a **sidecar** — not
-  composed into `DeployedIpaRewind`, which still posits the tree wholesale. So the bridge still bundles the
-  flat↔tree correspondence; reducing it to pure rewinding needs the forking reduction (not done).
-- **PARTIAL — O2/O3 (`s2-wiring-checklist.md`):** O3 — `decoded_columns_of_accept` recovers the per-column
-  openings on-path (proven decode), but the IPA witness `a` and the columns `col` are not linked (the
-  multiopen combination is carried by `hencodes`). O2 — `circuitSatViaGates_of_check` lifts `hquot` via SZ
-  (on-path), but `hquot` itself is **assumed**, not derived from the vanishing argument (needs the
-  permutation/lookup arguments modeled as polynomials — the §3 workstream). So `orchard_verifier_sound_deployed_closed`
-  is **not** closed to the irreducible floor; its residual is the floor + these unmodeled facts.
+- **CLOSED — O1/O2/O3 via the AGM route (`s2-wiring-checklist.md`):** O1 —
+  `orchard_verifier_sound_deployed_agm`: `DeployedAccepts → IpaRelation` derived from `assemble.eval = 0` by
+  the augmented binding (`deployed_flat_split`/`deployed_open_value`/`ipaRelation_of_flat`/`deployed_accept_flat`),
+  no posited tree — the structural correspondence is a proof from the flat equation, not bundled. O2 —
+  `deployed_constraint_of_decode`: the gate point-check derived from the decoded `h`-column + the VK numerator
+  + SZ; `hquot` no longer assumed. O3 — `decoded_columns_of_accept` + `orchard_verifier_sound_deployed_cols`:
+  decode on-path, conclusion over the recovered columns, no free `a`. Residual = the named floor only.
 
-What remains is the standard named cryptographic floor PLUS the unmodeled facts above (O1 flat↔tree wiring,
+What remains is the standard named cryptographic floor (for O2, VK-correctness carries the perm/lookup):
 O2 hquot derivation, the a↔col link):
 - **Special-soundness rewinding** (`DeployedIpaRewind`: accept → distinct-challenge tree) — irreducible ROM.
 - **Augmented binding** (`AugmentedBinding`: `g ∪ {U,W}` independent) — DLR hardness / AGM on the Pasta
