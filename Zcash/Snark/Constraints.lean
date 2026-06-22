@@ -96,4 +96,31 @@ theorem Expr.eval_toPoly (fixedCols adviceCols instanceCols : ℕ → Polynomial
           (fun i => (instanceCols i).eval x) := by
   induction e <;> simp_all [Expr.toPoly, Expr.eval]
 
+/-! ## Combining the gates into the constraint numerator
+
+The verifier combines all gate constraints by powers of the challenge `y` into the single `numerator` of
+the quotient identity (the `expected_h_eval` it compares against `h(x)·(xⁿ−1)`). `combineGates` is that
+`y`-weighted sum of the gate polynomials, and `eval_combineGates` shows its evaluation is the
+`y`-combination of the gate evaluations — so the assembled `numerator` is a genuine polynomial in the
+column polynomials, whose root count is exactly what `quotientCheck_sound` bounds. -/
+
+/-- The constraint `numerator`: the gate polynomials (`Expr.toPoly`) combined by powers of the random
+challenge `y`, as the verifier folds all gates into one vanishing argument. -/
+noncomputable def combineGates {n : ℕ} (fixedCols adviceCols instanceCols : ℕ → Polynomial Fp)
+    (y : Fp) (gates : Fin n → Expr Fp) : Polynomial Fp :=
+  ∑ i : Fin n, Polynomial.C (y ^ i.val) * Expr.toPoly fixedCols adviceCols instanceCols (gates i)
+
+/-- The combined numerator evaluates to the `y`-combination of the gate evaluations: the verifier's
+assembled gate value at `x` is `(combineGates …).eval x`, a single polynomial evaluation. Connects the
+Orchard gates (`Expr`) to the `numerator` of `quotientCheck` / `quotientCheck_sound`. -/
+theorem eval_combineGates {n : ℕ} (fixedCols adviceCols instanceCols : ℕ → Polynomial Fp)
+    (y : Fp) (gates : Fin n → Expr Fp) (x : Fp) :
+    (combineGates fixedCols adviceCols instanceCols y gates).eval x
+      = ∑ i : Fin n, y ^ i.val * (gates i).eval (fun j => (fixedCols j).eval x)
+          (fun j => (adviceCols j).eval x) (fun j => (instanceCols j).eval x) := by
+  simp only [combineGates]
+  rw [Polynomial.eval_finset_sum]
+  exact Finset.sum_congr rfl fun i _ => by
+    rw [Polynomial.eval_mul, Polynomial.eval_C, Expr.eval_toPoly]
+
 end Zcash.Snark
