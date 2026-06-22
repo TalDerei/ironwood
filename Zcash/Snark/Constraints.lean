@@ -64,6 +64,22 @@ theorem quotientCheck_complete (numerator h : Polynomial Fp) (n : ℕ)
     (heq : numerator = h * (X ^ n - 1)) (x : Fp) : quotientCheck numerator h n x := by
   simp only [quotientCheck, heq, eval_mul, eval_sub, eval_pow, eval_X, eval_one]
 
+/-- **The constraint identity, *derived* from acceptance (not assumed).** If the verifier's quotient check
+passes at the challenge `x` and `x` is not a root of the constraint difference — the "good challenge"
+event, whose complement is the `≤ deg/p` Schwartz–Zippel bad set bounded by `quotientCheck_sound` — then
+the constraint identity holds as polynomials. This is the per-instance contrapositive that puts
+`quotientCheck_sound` on the soundness path: *acceptance + good challenge ⇒ the committed polynomials
+satisfy the constraint system*, rather than taking that identity as a bare hypothesis. -/
+theorem constraint_identity_of_accept (numerator h : Polynomial Fp) (n : ℕ) (x : Fp)
+    (hcheck : quotientCheck numerator h n x)
+    (hgood : numerator ≠ h * (X ^ n - 1) → (numerator - h * (X ^ n - 1)).eval x ≠ 0) :
+    numerator = h * (X ^ n - 1) := by
+  by_contra hne
+  apply hgood hne
+  have hval : numerator.eval x = (h * (X ^ n - 1)).eval x := by
+    simpa [quotientCheck, eval_mul, eval_sub, eval_pow, eval_X, eval_one] using hcheck
+  simp [eval_sub, hval]
+
 /-! ## Lifting gate expressions to polynomials
 
 The verifier evaluates each gate `Expr` at the claimed evaluations, which are the committed column
