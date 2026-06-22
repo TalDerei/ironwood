@@ -42,7 +42,7 @@ noncomputable instance vestaFpModule [h : Fact VestaOrder] : Module Fp VestaG :=
 /-- **The conditional soundness composition, over the concrete Vesta curve.** This is
 `orchard_verifier_sound_conditional` with the abstract `Fp`-module specialised to `SWPoint Vesta.curve`:
 the *abstract-curve* assumption is replaced by `Fact VestaOrder` (the published Vesta group order), treated
-exactly as the field modulus is — a `Fact`, kept axiom-free. ⚠️ It inherits the **conditional** status of
+exactly as the field modulus is — a `Fact`, kept axiom-free. It inherits the **conditional** status of
 `orchard_verifier_sound_conditional` (assumed extraction + constraint identity; `accepts` not tied to the
 fingerprint); see that theorem's docstring and `notes/fv-review-checklist.md`. -/
 theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
@@ -53,5 +53,20 @@ theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S :=
   orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
+
+/-- The deployed soundness theorem over the concrete Vesta curve — `orchard_verifier_sound_deployed_final`
+specialised to `SWPoint Vesta.curve`, so the statement is about the actual fingerprint `assemble.eval = 0`.
+It carries the same explicit assumptions: `Fact VestaOrder` (the curve order), the
+`ExtractableFromDeployedAccept` bridge (rewinding + the IPA opening + circuit-satisfaction — the latter two
+still assumed, not derived; see that definition), and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_deployed [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
+    {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hbridge : ExtractableFromDeployedAccept srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
+    S :=
+  orchard_verifier_sound_deployed_final srs hk vk ps ch haccepts hbridge hencodes
 
 end Zcash.Snark

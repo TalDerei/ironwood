@@ -6,7 +6,7 @@ import Zcash.Snark.Consistency
 /-!
 # Soundness composition — CONDITIONAL, not yet completed (§2, in progress)
 
-⚠️ **Status.** This is a *conditional composition*, not finished SNARK soundness, and it does not yet share
+**Status.** This is a *conditional composition*, not finished SNARK soundness, and it does not yet share
 a formal object with the fingerprint MSM (§1). It is named with a `_conditional` suffix to avoid
 overclaiming. The gaps (tracked in `notes/fv-review-checklist.md`):
 
@@ -55,7 +55,7 @@ def ExtractableFromAcceptance (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp)
 /-- **Conditional soundness composition (NOT completed soundness).** From the *assumed* extraction data
 (`hextract haccepts` — which now also yields `circuitSat a`), conclude `S` via `hencodes`.
 
-⚠️ This assumes what §2 should prove: `accepts` is opaque (the `_deployed` variant fixes that); the
+This assumes what §2 should prove: `accepts` is opaque (the `_deployed` variant fixes that); the
 extraction + circuit-satisfaction are assumed (so `accepting_fold_eq` / `extract_correct` /
 `constraint_identity_of_accept` are off-path); and `hbind`'s binding only feeds the discarded uniqueness
 conjunct. It is the scaffold for the composition, not the composition — see the module docstring and
@@ -83,7 +83,7 @@ def DeployedAccepts [DecidableEq G] [Inhabited G] {shape : Shape} (srs : SRS G)
 `DeployedAccepts` — so §1's `assemble` / `Msm.eval` and the §2 soundness theorem finally share a formal
 object (previously `accepts` was a free `Prop`).
 
-⚠️ Still conditional: the bridge `hextract : DeployedAccepts … → ∃ t a, Consistent t a ∧ IpaRelation …`
+Still conditional: the bridge `hextract : DeployedAccepts … → ∃ t a, Consistent t a ∧ IpaRelation …`
 is **assumed**. Proving it — `(assemble vk ps ch).eval srs = 0 → ∃ t a, Consistent t a ∧ IpaRelation …`
 — is the hard remaining seam (the full C1), the actual IPA/multiopen soundness connecting the assembled
 MSM to the opening. -/
@@ -119,37 +119,43 @@ theorem orchard_sound_via_transcript (srs : SRS G)
     rw [hext]; exact ⟨hopen, hsat⟩
   exact hencodes hrel
 
-/-- **The Fiat–Shamir / special-soundness assumption, stated minimally.** A deployed accepting proof
-yields a *tree* of accepting transcripts — the prover rewound under reprogrammed challenges. This is the
-**irreducible** ROM/forking step (the `Accepting` tree needs multiple distinct-challenge transcripts, which
-one proof cannot give in the standard model), exactly analogous to DLR hardness for binding. Note what it
-does **not** include: the IPA extraction, consistency, and constraint discharge are all *proven*
-downstream (`accepting_extract`, `circuitSatViaGates_of_check`), so this assumes only the rewinding itself
-— the minimal honest form (cf. the earlier `ExtractableFromAcceptance`, which over-assumed the extraction
-*output*). -/
-def FiatShamirRewind (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
+/-- **The extraction bridge from deployed acceptance — bundles THREE assumptions (not "minimal FS").** A
+deployed accepting proof yields a witness tree that is `Accepting` (the rewinding/forking step — genuine
+Fiat–Shamir), **and** whose root response opens the commitment (`IpaRelation`), **and** satisfies the
+circuit (`circuitSat`).
+
+The latter two conjuncts are **assumed here, not derived.** `Accepting srs.g wt` is defined over `srs.g`
+and the tree's internal fold-consistency *only* — it never mentions `P`, `b`, `v` — so it cannot imply
+`IpaRelation srs P b v wt.witness`; circuit-satisfaction is likewise separate. Deriving them from deployed
+acceptance is the open C1 work: `Zcash.Snark.eval_ipaFold` (the IPA verification equation) is the lever for
+the opening, `circuitSatViaGates_of_check` for the constraint. Until those land and these conjuncts are
+removed, the IPA knowledge-soundness conclusion + the constraint are part of the assumption, not proven. -/
+def ExtractableFromDeployedAccept (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
     (circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop) (accepts : Prop) : Prop :=
   accepts → ∃ wt : WTree Fp srs.k,
     Accepting srs.g wt ∧ IpaRelation srs P b v wt.witness ∧ circuitSat wt.witness
 
-/-- **The deployed Orchard verifier is sound, modulo the minimal named assumptions (C1 closed mod FS).**
-From the deployed accept condition (`haccepts : DeployedAccepts`, i.e. `assemble.eval srs = 0`) and the
-Fiat–Shamir rewinding assumption (`hfs`), and the VK encoding the statement (`hencodes`), conclude the
-high-level statement `S`. Everything between acceptance and `S` is **proven**: rewinding gives an
-`Accepting` tree, then `accepting_extract` extracts the witness, it opens the commitment, and
-`circuitSatViaGates_of_check`-style reasoning gives circuit-satisfaction — so the *only* assumptions are
-the explicit named ones: DLR hardness (inside `Accepting`'s binding), Fiat–Shamir rewinding (`hfs`),
-VK-correctness (`hencodes`), and the Vesta curve order (in `Zcash.Snark.Vesta`). This is the honest
-terminal form of the §1↔§2 bridge: C1's residual is exactly the irreducible FS assumption, isolated. -/
+/-- **The deployed Orchard verifier is sound — CONDITIONAL on the extraction bridge.** From the deployed
+accept condition (`haccepts : DeployedAccepts`, i.e. `assemble.eval srs = 0`) and the bridge `hbridge`, plus
+the VK encoding the statement (`hencodes`), conclude the high-level statement `S`.
+
+**Conditional, and `hbridge` bundles unproven content.** `ExtractableFromDeployedAccept` assumes the
+rewinding (genuine FS) **and** the IPA opening (`IpaRelation`) **and** circuit-satisfaction — and the latter
+two are *not* derived from `DeployedAccepts` here (its content is only the trigger fed to `hbridge`; the MSM
+equation is never inspected). What *is* proven on the path: rewinding's `Accepting` tree extracts the
+witness (`accepting_extract`), so the conclusion is about the *extracted* witness. **Genuinely closing C1**
+means deriving `IpaRelation` and `circuitSat` from `DeployedAccepts` (via `eval_ipaFold` and
+`circuitSatViaGates_of_check`) and *removing* those conjuncts from the bridge — open work; until then this
+is the honest conditional form. -/
 theorem orchard_verifier_sound_deployed_final [DecidableEq G] [Inhabited G] {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp) {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
     {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
     (haccepts : DeployedAccepts srs hk vk ps ch)
-    (hfs : FiatShamirRewind srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
+    (hbridge : ExtractableFromDeployedAccept srs P b v circuitSat (DeployedAccepts srs hk vk ps ch))
     {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S := by
-  obtain ⟨wt, haccept, hopen, hsat⟩ := hfs haccepts
+  obtain ⟨wt, haccept, hopen, hsat⟩ := hbridge haccepts
   exact orchard_sound_via_transcript srs wt haccept hopen hsat (hencodes (extract wt.toTree))
 
 end Zcash.Snark

@@ -30,7 +30,7 @@ This layer is sound **relative to** the following, each kept explicit rather tha
   a nontrivial relation, and `commitmentBinding_iff_no_relation` proves binding *is* exactly DLR hardness
   (the reduction is proven; only the hardness is claimed).
 * **Fiat–Shamir / Blake2b** as a random oracle — challenges are treated as uniform and unpredictable; the
-  hash and the random-oracle reduction are not modeled. ⚠️ The capstone's current assumption
+  hash and the random-oracle reduction are not modeled. The capstone's current assumption
   (`ExtractableFromAcceptance`) is in fact *stronger* — it bundles the IPA knowledge-soundness conclusion,
   not just FS; narrowing it to "uniform challenges" is checklist C3.
 * **Vesta curve order** — the abstract development runs over any `Fp`-module `G`, but `Zcash.Snark.Vesta`
@@ -104,7 +104,7 @@ theorem circuitSatViaGates_of_check {k : ℕ} (fixedCols : ℕ → Polynomial Fp
 **unique** witness satisfying `SnarkRelation`. Composes `extract_correct` (extraction) and
 `ipaRelation_unique` (uniqueness under DLR hardness).
 
-⚠️ The hypotheses `hcons` and `hsat` are **assumed** here, not derived from acceptance — deriving them
+The hypotheses `hcons` and `hsat` are **assumed** here, not derived from acceptance — deriving them
 (via `accepting_fold_eq` + `commitGen_round`, and `constraint_identity_of_accept` off the `d/p` bad set
 through the multiopen decode) is the open composition work (checklist C1-full/C3). -/
 theorem knowledge_sound (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
