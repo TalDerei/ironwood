@@ -1,5 +1,6 @@
 import Mathlib
 import Zcash.Snark.Main
+import Zcash.Snark.Weld
 import CompElliptic.Curves.Pasta
 
 /-!
@@ -112,5 +113,37 @@ theorem orchard_verifier_sound_vesta_C3 [Fact VestaOrder] [DecidableEq VestaG] [
     S :=
   orchard_verifier_sound_deployed_C3 srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
     hpoly deg x haccepts hFS hquot hgood hencodes
+
+open Polynomial in
+/-- **The deployed Orchard verifier is sound over Vesta — full weld, `U`/`W`/`S` peeled.**
+`orchard_verifier_sound_deployed_full` specialised to `SWPoint Vesta.curve`: the IPA opening is derived over
+halo2's concrete `U`/`W`/`S` structure (`deployed_ipa_soundV` — the value-binding `U`, blinding `W` and
+synthetic-blinding `S`/`ξ` peeled via the augmented binding), the constraint via the gate point-check; the
+eval vector is pinned to `evalVector srs.k ch.x3`. Named assumptions (the floor): the pure rewinding
+(`hrewind`), the augmented binding (`hbind`, DLR/AGM on `srs.u`,`srs.w`), the binding challenge
+(`ch.z ≠ 0`), the gate point-check + SZ good challenge (`hquot`/`hgood`), the Vesta curve order
+(`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_full [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp) {P : VestaG} {v : Fp}
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin (2 ^ srs.k) → Fp) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (x : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → VestaG), AugmentedBinding (F := Fp) g' srs.u srs.w)
+    (hz : ch.z ≠ 0)
+    (haccepts : DeployedAccepts srs hk vk ps ch)
+    (hrewind : DeployedIpaRewind srs (evalVector srs.k ch.x3) ch.z P v (DeployedAccepts srs hk vk ps ch))
+    (hquot : ∀ a, IpaRelation srs P (evalVector srs.k ch.x3) v a →
+      quotientCheck (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates) hpoly deg x)
+    (hgood : ∀ a, IpaRelation srs P (evalVector srs.k ch.x3) v a →
+      combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice a) (decodeInstance a) y gates
+        - hpoly * (X ^ deg - 1)).eval x ≠ 0)
+    {S : Prop}
+    (hencodes : ∀ a, SnarkRelation srs P (evalVector srs.k ch.x3) v
+      (circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg) a → S) :
+    S :=
+  orchard_verifier_sound_deployed_full srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
+    hpoly deg x hbind hz haccepts hrewind hquot hgood hencodes
 
 end Zcash.Snark

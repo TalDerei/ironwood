@@ -21,5 +21,9 @@ import Zcash.Snark.Constraints
 import Zcash.Snark.CommitFold
 import Zcash.Snark.Consistency
 import Zcash.Snark.KnowledgeSoundness
+import Zcash.Snark.IpaSoundness
+import Zcash.Snark.IpaDeployed
+import Zcash.Snark.IpaUWS
 import Zcash.Snark.Main
+import Zcash.Snark.Weld
 import Zcash.Snark.Vesta
