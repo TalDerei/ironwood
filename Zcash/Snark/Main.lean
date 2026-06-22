@@ -6,45 +6,64 @@ import Zcash.Snark.KnowledgeSoundness
 
 The top of the soundness layer. `orchard_verifier_sound` states the end-to-end guarantee — an accepting
 proof implies the high-level Orchard statement `S` — and proves it by composing `knowledge_sound` with
-the single remaining boundary hypothesis `hencodes` (VK-correctness, checklist §3).
+the two remaining boundary hypotheses: `FiatShamirSound` (the random-oracle leap) and `hencodes`
+(VK-correctness, checklist §3).
 
-The chain, every hop explicit:
+The chain, every hop a labeled line:
 
 ```
-accepting transcript
-  ──[extract_correct + accepting_fold_eq + DLR hardness]──▶  a Consistent tree, extracted witness `a`
-  ──[ipaRelation_unique + quotientCheck_sound + eval_combineGates]──▶  `a` satisfies SnarkRelation
-  ──[hencodes : checklist §3, Daira's flow]──▶  the high-level statement `S`
+deployed verifier accepts        (`accepts` : its fingerprint MSM is the group identity)
+  ──[FiatShamirSound : Blake2b as a random oracle + rewinding]──▶   a Consistent tree + the opening
+  ──[knowledge_sound : extract_correct + ipaRelation_unique, DLR hardness]──▶   witness satisfies SnarkRelation
+  ──[hencodes : checklist §3, Daira's flow]──▶   the high-level statement `S`
 ```
 
-The first two hops are **proven** (modulo the named DLR-hardness / Fiat–Shamir / abstract-curve
-assumptions recorded in `Zcash.Snark.KnowledgeSoundness`). The last hop, `hencodes`, is the **separate
-VK-correctness workstream** — compile the Orchard Action circuit to a verifying key and check that its
-constraint system encodes note ownership / value balance / nullifier integrity. We take it as an
-explicit hypothesis here so the trust boundary is visible rather than hidden, and so the high-level
-statement `S` is whatever that workstream certifies the circuit to mean.
+The middle hop is **proven** (modulo the DLR-hardness assumption; the per-node binding step is
+`accepting_fold_eq`). The two ends are the named assumptions kept explicit:
+
+* `FiatShamirSound` packages the **single Fiat–Shamir hand-wave** into one line — that the deployed
+  non-interactive verifier accepting a proof yields the special-soundness data the interactive extractor
+  consumes (a transcript tree with distinct, unpredictable challenges, consistent with a witness opening
+  the commitment). This is the random-oracle idealisation of Blake2b together with rewinding; we model
+  neither the hash nor the forking reduction. (In the *fingerprint match* the challenges are the captured
+  real values, so that check does not depend on this.)
+* `hencodes` is the **VK-correctness** workstream (compile the Orchard Action circuit to a verifying key
+  and check its constraints encode note ownership / value balance / nullifier integrity), checklist §3.
+
+See `Zcash.Snark.KnowledgeSoundness` for the full assumption list (DLR hardness, Fiat–Shamir, abstract
+Pasta curve, VK-correctness).
 -/
 
 namespace Zcash.Snark
 
 variable {G : Type*} [AddCommGroup G] [Module Fp G]
 
-/-- **The Orchard verifier is sound (end to end).** Given the proven soundness chain — an accepting
-transcript tree consistent with the extracted witness `a` (binding ⇒ consistent, via `accepting_fold_eq`
-under DLR hardness), the opening, and the constraint identity (`quotientCheck_sound`) — `knowledge_sound`
-yields that `a` satisfies `SnarkRelation`. If, in addition, the verifying key correctly encodes the
-high-level statement `S` (`hencodes`, checklist §3 / Daira's flow), then an accepting proof implies `S`.
+/-- **The Fiat–Shamir assumption, as one labeled line.** The deployed non-interactive verifier accepting
+a proof (`accepts` — concretely, its fingerprint MSM is the group identity) yields the special-soundness
+data the interactive extractor consumes: a tree of accepting transcripts with distinct, unpredictable
+challenges at every node (the random-oracle / forking step), consistent with a witness that opens the
+commitment. This isolates the *single* Fiat–Shamir hand-wave — the random-oracle idealisation of Blake2b
+plus rewinding — as one `Prop` rather than diffusing it into the soundness theorem's hypotheses;
+everything after it is proven (the consistency is the binding-forced fold of `accepting_fold_eq`). -/
+def FiatShamirSound (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp) (accepts : Prop) : Prop :=
+  accepts → ∃ (t : Tree Fp srs.k) (a : Fin (2 ^ srs.k) → Fp),
+    Consistent t a ∧ IpaRelation srs P b v a
 
-This is the capstone: it makes the *entire* trust boundary explicit. Everything before `hencodes` is
-proven from the DLR-hardness / Fiat–Shamir / curve assumptions; `hencodes` is the VK-correctness
-assumption, the one piece this verifier-side formalization deliberately leaves to the circuit-side
-workstream. -/
+/-- **The Orchard verifier is sound (end to end).** If the deployed verifier accepts (`haccepts`), then
+under the Fiat–Shamir assumption (`hfs`) it yields a consistent accepting tree and opening;
+`knowledge_sound` (under DLR hardness `hbind`, with the constraint identity `hcon`) turns these into a
+witness satisfying `SnarkRelation`; and if the verifying key correctly encodes the high-level statement
+`S` (`hencodes`, checklist §3 / Daira's flow), then `S` holds.
+
+This is the capstone: the *entire* trust boundary is the three named hypotheses `hbind` (DLR hardness),
+`hfs` (Fiat–Shamir), and `hencodes` (VK-correctness) — everything between them is proven. -/
 theorem orchard_verifier_sound (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
-    {t : Tree Fp srs.k} {a : Fin (2 ^ srs.k) → Fp} (hcons : Consistent t a)
-    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} (hopen : IpaRelation srs P b v a)
+    {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
+    {accepts : Prop} (haccepts : accepts) (hfs : FiatShamirSound srs P b v accepts)
     {numerator h : Polynomial Fp} {n : ℕ} (hcon : numerator = h * (Polynomial.X ^ n - 1))
-    {S : Prop} (hencodes : SnarkRelation srs P b v numerator h n a → S) :
-    S :=
-  hencodes (knowledge_sound srs hbind hcons hopen hcon).2.1
+    {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v numerator h n a → S) :
+    S := by
+  obtain ⟨t, a, hcons, hopen⟩ := hfs haccepts
+  exact hencodes a (knowledge_sound srs hbind hcons hopen hcon).2.1
 
 end Zcash.Snark
