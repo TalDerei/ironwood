@@ -52,7 +52,7 @@ def ColumnRef.resolve {F : Type*} (cr : ColumnRef) (instanceEvals adviceEvals fi
 -- circuit. So "the dumped `gates`/`omega`/`n`/query layouts are the real circuit's VK" is an assumption,
 -- not a theorem (the input-faithfulness seam). Discharging it means re-running keygen from the circuit
 -- definition and comparing. This is distinct from, and cheaper than, the output-side adequacy gap
--- (Step 4, see `Main.lean`). Tracked under "VK-correctness" in `notes/fv-review-checklist.md`.
+-- (Step 4, see `Main.lean`). This is the "VK-correctness" assumption (the §3 input-faithfulness boundary).
 /-- The verifying-key–level circuit structure the assembly needs (halo2 `VerifyingKey` / `ConstraintSystem`).
 `omega` is the domain generator and `n = 2 ^ k` the domain size; `blindingFactors`, `delta`, `chunkLen`
 are the permutation-argument constants. `gates` are the custom-gate polynomials; `instance/advice/fixed
@@ -256,7 +256,7 @@ The conflicting-eval guard (halo2's `None`) is omitted: the audit established it
 well-formed verifying key (a defensive invariant on the verifier's own bookkeeping, not prover data).
 Commitments are grouped by their **slot identity** (`VerifierQuery.commId`), matching halo2's pointer
 identity (`construct_intermediate_sets` keys by `std::ptr::eq`) — so two distinct slots with equal curve
-values stay distinct, which a value-equality key would wrongly merge (closing review item F1). The curve
+values stay distinct, which a value-equality key would wrongly merge. The curve
 value (`CommitmentRef`) is still what each group contributes to the MSM. -/
 def constructIntermediateSets {k : ℕ} {F G : Type*} [DecidableEq F] [DecidableEq G]
     (queries : List (VerifierQuery k F G)) : MultiopenGrouped k F G :=

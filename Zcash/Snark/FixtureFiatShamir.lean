@@ -5,7 +5,7 @@ import Zcash.Snark.Fixture
 
 The captured fingerprint match (`Zcash.Snark.Fixture.fingerprint_matches`) checks the assembled MSM at the
 *captured* challenges `ch`. On its own that leaves the Fiat–Shamir **schedule** unchecked — a wrong
-`deriveChallenges` could not be caught, because the fixture never evaluates it (review item E).
+`deriveChallenges` could not be caught, because the fixture never evaluates it.
 
 This module connects the *Fiat–Shamir-derived* fingerprint (`nonInteractiveFingerprint`, i.e. `assemble` at
 `deriveChallenges`) to the same captured MSM, modulo one explicit assumption: that the deployed FS schedule

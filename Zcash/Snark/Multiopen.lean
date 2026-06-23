@@ -1,7 +1,7 @@
 import Zcash.Snark.IpaUWS
 
 /-!
-# The multiopen decode over the deployed IPA (closing O3)
+# The multiopen decode over the deployed IPA
 
 `Zcash.Snark.multiopen_decode_of_trees` proves the multiopen decode for the *clean* IPA. Here we wire it to
 the *deployed* IPA (with `U`/`W`/`S`): from deployed transcript trees opening the batched commitment at `n`

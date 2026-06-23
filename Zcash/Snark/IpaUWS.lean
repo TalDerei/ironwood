@@ -54,14 +54,14 @@ theorem AugmentedBinding.separate {n : ℕ} {g : Fin n → G} {U W : G} (h : Aug
   exact ⟨sub_eq_zero.mp ha, sub_eq_zero.mp hα, sub_eq_zero.mp hβ⟩
 
 /-- **The deployed flat verification equation splits into its `g`/`U`/`W` relations — derived from
-`assemble.eval = 0`, no posited tree (O1, AGM route).** With the prover's group elements given via their AGM
+`assemble.eval = 0`, no posited tree (the opening, AGM route).** With the prover's group elements given via their AGM
 representations over `(g, U, W)` — the multiopen commitment `commitGen g aP + pw•W`, the blinding poly
 `commitGen g aSxi + swxi•W` (the `ξ`-scaled `S`), the round total `commitGen g aRounds + uRounds•U + wRounds•W`,
 the `[-v]g₀` term `commitGen g vVec`, the `[-c·b·z]U` and `[-f]W` constants, and the folded generator
 `commitGen g svTerm` (`= [-c]·G'₀`, via `foldAll = commitGen g (sFun u 1)`) — the augmented binding reads
 `assemble.eval = 0` off as three independent identities: the `g`-relation (the opening constraint), the
 `U`-relation (the value/inner-product binding), and the `W`-relation (blinding). This is exactly the
-MSM↔structured-checks connection review flagged as missing: it is now a *proof from* `assemble.eval = 0`,
+MSM↔structured-checks connection: it is now a *proof from* `assemble.eval = 0`,
 not a posited bridge. Floor: the AGM representations + the augmented binding. -/
 theorem deployed_flat_split {k : ℕ} {g : Fin (2 ^ k) → G} {U W : G}
     (hbind : AugmentedBinding (F := F) g U W)
@@ -87,7 +87,7 @@ theorem deployed_flat_split {k : ℕ} {g : Fin (2 ^ k) → G} {U W : G}
     rw [expand]; exact hflat
   exact hbind _ _ _ key
 
-/-- **The value `⟨aP, b⟩ = v` follows from the split relations (O1 value extraction).** From the `g`-relation
+/-- **The value `⟨aP, b⟩ = v` follows from the split relations (the opening's value extraction).** From the `g`-relation
 (`deployed_flat_split`'s first conjunct), taken in inner product with `b`, plus the `U`-relation and the
 honest/SZ structure: the blinding poly vanishes at the point (`⟨aSxi, b⟩ = 0` — `S` has a root at `x`, the
 `ξ`-challenge's job), the round `U`-coefficient is `z·⟨aRounds, b⟩` (the `z`-challenge ensures the prover

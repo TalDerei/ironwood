@@ -2,7 +2,7 @@ import Zcash.Snark.Extraction
 import Zcash.Snark.CommitFold
 
 /-!
-# From an accepting transcript to a consistent tree (C3-Consistent)
+# From an accepting transcript to a consistent tree
 
 `Zcash.Snark.accepting_fold_eq_foldVec` is the per-node binding step: an accepting round response *is* the
 true fold. This module composes it over the whole tree, closing the `accepting ⇒ Consistent` seam that

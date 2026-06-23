@@ -6,7 +6,7 @@ import Zcash.Snark.Ipa
 
 `eval_ipaFold` gives the *flattened* deployed verification equation; `ipa_soundV` proves soundness of the
 *recursive* verifier. This module connects them — closing the structural correspondence the bridge used to
-absorb (checklist B).
+absorb.
 
 The key is the `compute_s` correspondence: the deployed `g`-scalars `computeS u init` halve at each round
 exactly as `commitGen_append` splits a commitment, so `commitGen g (sFun u init)` folds recursively with the

@@ -5,7 +5,7 @@ import Zcash.Snark.Constraints
 import Zcash.Snark.CommitFold
 
 /-!
-# Knowledge soundness, end to end (Step 4)
+# Knowledge soundness, end to end
 
 The capstone: an accepting proof demonstrates knowledge of a witness satisfying the SNARK relation. It
 composes the proven pieces of the soundness layer —
@@ -32,7 +32,7 @@ This layer is sound **relative to** the following, each kept explicit rather tha
 * **Fiat–Shamir / Blake2b** as a random oracle — challenges are treated as uniform and unpredictable; the
   hash and the random-oracle reduction are not modeled. The capstone's current assumption
   (`ExtractableFromAcceptance`) is in fact *stronger* — it bundles the IPA knowledge-soundness conclusion,
-  not just FS; narrowing it to "uniform challenges" is checklist C3.
+  not just FS; narrowing it to "uniform challenges" is open constraint-side work.
 * **Vesta curve order** — the abstract development runs over any `Fp`-module `G`, but `Zcash.Snark.Vesta`
   pins it to the *concrete* Vesta curve `SWPoint Vesta.curve` (`y² = x³ + 5`), whose group law is proven
   (mathlib's elliptic-curve group law, via `WeierstrassCurve.Affine.Point`). The sole residual assumption
@@ -40,7 +40,7 @@ This layer is sound **relative to** the following, each kept explicit rather tha
   order `p = scalarFieldOrder`), carried exactly like the field modulus `Fact (Nat.Prime p)`. Unlike the
   field (discharged by a Pratt certificate), the curve order has no point-counting certificate in the
   library, so it stays an assumption — but axiom-free, as a `Fact` hypothesis.
-* **The verifying key is the correct circuit** (Daira's flow / checklist §3): that the VK's gates encode
+* **The verifying key is the correct circuit** (Daira's flow): that the VK's gates encode
   the intended high-level relation (note ownership, value balance, nullifiers) is a *separate* workstream
   — this layer proves the verifier sound *relative to the given VK*, ending at "the witness satisfies the
   VK's constraint system."
@@ -61,7 +61,7 @@ variable {G : Type*} [AddCommGroup G] [Module Fp G]
 (`IpaRelation`) **and** satisfies the circuit (`circuitSat a`). Both conjuncts are now about the *same*
 extracted witness `a` (fixing the earlier flaw where the constraint was on free, unrelated polynomials).
 `circuitSat` is the circuit-satisfaction predicate — its intended instantiation is `circuitSatViaGates`
-("the witness's decoded columns satisfy the `y`-combined gates"). The remaining gap (C1-full/C3) is
+("the witness's decoded columns satisfy the `y`-combined gates"). The remaining gap is
 *deriving* `circuitSat a` for the extracted `a` from the deployed constraint check
 (`constraint_identity_of_accept`) through the multiopen decode. -/
 structure SnarkRelation (srs : SRS G) (P : G) (b : Fin (2 ^ srs.k) → Fp) (v : Fp)
@@ -106,7 +106,7 @@ theorem circuitSatViaGates_of_check {k : ℕ} (fixedCols : ℕ → Polynomial Fp
 
 The hypotheses `hcons` and `hsat` are **assumed** here, not derived from acceptance — deriving them
 (via `accepting_fold_eq` + `commitGen_round`, and `constraint_identity_of_accept` off the `d/p` bad set
-through the multiopen decode) is the open composition work (checklist C1-full/C3). -/
+through the multiopen decode) is the open composition work. -/
 theorem knowledge_sound (srs : SRS G) (hbind : CommitmentBinding (F := Fp) srs)
     {t : Tree Fp srs.k} {a : Fin (2 ^ srs.k) → Fp} (hcons : Consistent t a)
     {P : G} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} (hopen : IpaRelation srs P b v a)

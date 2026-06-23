@@ -6,8 +6,8 @@ fingerprint** (the assembled MSM). Match ⇒ the soundness we prove about the in
 (Schwartz–Zippel now; special-soundness and witness extraction later) transfers to the deployed code,
 without a line-by-line translation proof.
 
-Companion: `verifier-error-path-audit.md` (the audit establishing the MSM *is* the verifier — accept ⇔
-`MSM = identity`, no prover-controlled branch).
+Background: the error-path audit established that the MSM *is* the verifier — accept ⇔
+`MSM = identity`, with no prover-controlled branch in between.
 
 ## The interactive verifier vs the deployed one
 

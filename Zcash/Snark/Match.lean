@@ -25,8 +25,7 @@ This module provides the match's logical content:
   `fingerprint_schwartz_zippel`). This is a **generic** statement about an abstract polynomial; it is
   **not** instantiated at `assemble`'s actual coefficient differences (no degree bound proved for them, no
   union bound across terms), so "one random proof suffices up to `d / p`" is **not yet a Lean link**. The
-  numeric fixture match (`native_decide`) establishes agreement on **one captured proof**, full stop
-  (checklist F2).
+  numeric fixture match (`native_decide`) establishes agreement on **one captured proof**, full stop.
 * `gScalars_card` — the structural cross-check: the assembled MSM carries `2 ^ k` SRS-generator
   coefficients, matching the captured Orchard fingerprint's `2 ^ 11 = 2048`.
 
@@ -41,7 +40,7 @@ coefficient comparison `MsmMatch` above. The group bases stay abstract in Lean (
 hand-waved), so the numeric comparison is of the scalar coefficients, with the bases shared by construction.
 In the fixture the bases are opaque `ℕ` tags (`G := ℕ`), so the match says **nothing about the Vesta
 curve**: the faithfulness "same `ℕ` tag ⇔ same Vesta point" lives in the Rust capture (the forks), not in
-Lean (checklist F3).
+Lean.
 -/
 
 namespace Zcash.Snark

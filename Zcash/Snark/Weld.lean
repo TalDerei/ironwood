@@ -12,7 +12,7 @@ halo2's **concrete** `U`/`W`/`S` structure (not assumed via an opaque bridge). I
   verifier equation, carrying the value-binding `U`, the blinding `W` and the synthetic-blinding `S`/`ξ`,
   peels (augmented binding) to the clean `IpaAcceptV` and feeds `ipa_soundV`, yielding `IpaRelation`.
 * `circuitSatViaGates_of_check` (`Zcash.Snark.KnowledgeSoundness`) — the constraint side: the verifier's gate
-  point-check at `x`, lifted by Schwartz–Zippel, gives `circuitSatViaGates` (C3).
+  point-check at `x`, lifted by Schwartz–Zippel, gives `circuitSatViaGates`.
 
 Both conjuncts of `SnarkRelation` are therefore **derived** from the deployed accept. The eval vector is
 **pinned** to `evalVector srs.k ch.x3` (`b = (x₃ⁱ)`), and the `U`/`W`/`z` to the SRS generators / the actual
@@ -71,7 +71,7 @@ theorem ipaRelation_of_deployedAcceptV (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp
   · have hib : innerProduct a b = commitGen b a := by simp only [innerProduct, commitGen, smul_eq_mul]
     rw [hib]; exact hv
 
-/-- **`IpaRelation` derived directly from the flat verification equation (O1, AGM route — no posited tree).**
+/-- **`IpaRelation` derived directly from the flat verification equation (the opening, AGM route — no posited tree).**
 Composes `deployed_flat_split` (the augmented binding reads `assemble.eval = 0` off as the g/U/W relations)
 with `deployed_open_value` (the value `⟨aP,b⟩ = v` from those relations + the SZ structure). The witness is
 `aP`, the multiopen commitment's `g`-representation; it opens the pure-`g` commitment `⟨aP, g⟩` (the
@@ -93,14 +93,14 @@ theorem ipaRelation_of_flat (srs : SRS G) (b aP aSxi aRounds vVec svTerm : Fin (
   exact ⟨commit_eq_commitGen srs aP, deployed_open_value b aP aSxi aRounds vVec svTerm uRounds uConst
     v ipRounds cb z hg hu hSxi hvVec hsvTerm hRounds huConst huRounds hz⟩
 
-/-- **The glue: `DeployedAccepts` unfolds to the flat equation in AGM-representation form (O1 connected to
-the real assembly).** Given the prover's group elements via their AGM representations — the multiopen
+/-- **The glue: `DeployedAccepts` unfolds to the flat equation in AGM-representation form (the opening
+connected to the real assembly).** Given the prover's group elements via their AGM representations — the multiopen
 commitment `(assembleOpening …).1.eval = ⟨aP,g⟩ + pw•w`, the blinding poly `ps.ipaS = ⟨aS,g⟩ + sw•w`, and the
 round total `Σ([uⱼ⁻¹]Lⱼ+[uⱼ]Rⱼ) = ⟨aRounds,g⟩ + uRounds•u + wRounds•w` — the deployed accept
 `assemble.eval = 0` is exactly `ipaRelation_of_flat`'s hypothesis. Composes `eval_assembleFinalMsm` (the §1
 algebra — `assemble.eval` in closed form) with the representations; the `[-v]g₀` and `computeS` terms are the
-`g`-commitments `⟨vVec,g⟩`, `⟨svTerm,g⟩` definitionally. So O1's structural correspondence is a proof *from*
-`assemble.eval = 0`, with the only added inputs the AGM representations. -/
+`g`-commitments `⟨vVec,g⟩`, `⟨svTerm,g⟩` definitionally. So the opening's structural correspondence is a
+proof *from* `assemble.eval = 0`, with the only added inputs the AGM representations. -/
 theorem deployed_accept_flat [DecidableEq G] [Inhabited G] {shape : Shape} (g : Fin (2 ^ shape.k) → G)
     (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G) (ch : Challenges shape.k Fp)
     (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds : Fp)
@@ -125,7 +125,7 @@ theorem deployed_accept_flat [DecidableEq G] [Inhabited G] {shape : Shape} (g : 
   simp only [commitGen, smul_add, Finset.smul_sum, smul_smul, Pi.smul_apply, smul_eq_mul] at haccepts ⊢
   rw [← haccepts]; abel
 
-/-- **O1 closed end-to-end via the AGM route: `DeployedAccepts → IpaRelation`, no posited tree.** Composes
+/-- **The IPA opening, derived end-to-end via the AGM route: `DeployedAccepts → IpaRelation`, no posited tree.** Composes
 `deployed_accept_flat` (the §1 glue: `assemble.eval = 0` unfolds to the AGM flat equation) with
 `ipaRelation_of_flat` (the binding split + value extraction). So from the deployed accept of the *real
 assembly* (`assemble.eval = 0`), the prover's AGM representations (`hP`/`hS`/`hRounds`), the augmented binding
@@ -189,7 +189,7 @@ def DeployedIpaRewind (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp) (z : Fp) (P : G
   accepts → ∃ (blind : Fp) (t : DeployedIpaTreeV Fp G srs.k),
     DeployedIpaAcceptV srs.g b srs.u srs.w z P v blind t
 
-/-- **The deployed Orchard verifier is sound — C1 (opening) and C3 (constraint) both derived, `U`/`W`/`S`
+/-- **The deployed Orchard verifier is sound — opening and constraint both derived, `U`/`W`/`S`
 peeled.** From the deployed accept (`assemble.eval = 0`), the pure-rewinding bridge `hrewind`, the augmented
 binding `hbind` (DLR/AGM), the no-`U`-interference challenge `ch.z ≠ 0`, and the gate point-check `hquot` with
 its good challenge `hgood`, conclude the high-level statement `S` via VK-correctness `hencodes`.
@@ -228,7 +228,7 @@ theorem orchard_verifier_sound_deployed_full [DecidableEq G] [Inhabited G] {shap
       (hquot a hrel) (hgood a hrel)
   exact hencodes a ⟨hrel, hsat⟩
 
-/-! ## The multiopen decode wired to acceptance (checklist O3)
+/-! ## The multiopen decode wired to acceptance
 
 The IPA opening recovers the *collapsed* witness for the multiopen commitment `P`. To feed the gate check we
 need the *individual* column openings — what `multiopen_decode_deployed` recovers from the batching rewinding.
@@ -249,7 +249,7 @@ def DeployedMultiopenRewind {n : ℕ} (srs : SRS G) (b : Fin (2 ^ srs.k) → Fp)
       ∀ k, DeployedIpaAcceptV srs.g b srs.u srs.w zIpa
         (∑ j : Fin n, zBatch k ^ (j : ℕ) • C j) (∑ j : Fin n, zBatch k ^ (j : ℕ) • e j) (blind k) (t k)
 
-/-- **The per-column openings are derived from acceptance** (O3 wired). Given the batching bridge and the
+/-- **The per-column openings are derived from acceptance** (the decode wired). Given the batching bridge and the
 augmented binding, every individual column `i` opens to its commitment `C i` and its claimed evaluation
 `e i`: `∃ col, ∀ i, commit srs col_i = C i ∧ ⟨col_i, b⟩ = e i`. Composes the bridge with the proven
 `multiopen_decode_deployed`. -/
@@ -262,7 +262,7 @@ theorem decoded_columns_of_accept {n : ℕ} (srs : SRS G) (b : Fin (2 ^ srs.k) �
   obtain ⟨hzBatch, hzIpa, blind, t, ht⟩ := bridge h
   exact multiopen_decode_deployed srs b C e zBatch hzBatch hbind hzIpa blind t ht
 
-/-! ## `P`/`v` pinned to the §1 assembly (checklist B3)
+/-! ## `P`/`v` pinned to the §1 assembly
 
 The capstone above leaves `P`, `v` as parameters tied to the proof only through the bridge. Here they are
 **pinned definitionally** to the multiopen commitment and value the §1 assembly produces — the group element
@@ -321,7 +321,7 @@ theorem orchard_verifier_sound_deployed_pinned {shape : Shape}
   orchard_verifier_sound_deployed_full (⟨shape.k, g, w, u⟩ : SRS G) rfl vk ps ch fixedCols
     decodeAdvice decodeInstance y gates hpoly deg xc hbind hz haccepts hrewind hquot hgood hencodes
 
-/-! ## Capstone wiring the opening, the decode, and the SZ constraint lift (O2 + O3) — honest residual
+/-! ## Capstone wiring the opening, the decode, and the SZ constraint lift — honest residual
 
 `orchard_verifier_sound_deployed_closed` composes three derivations from the deployed accept: the IPA opening
 (`ipaRelation_of_deployedAcceptV`, `U`/`W`/`S` peeled — genuinely on-path), the per-column decode
@@ -378,7 +378,7 @@ theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {sh
       y gates hpoly deg a x (hquot col hcol) (hgood col hcol)
   exact hencodes a col hcol hrel hsat
 
-/-! ## O2: the gate point-check derived from the deployed vanishing argument (not assumed)
+/-! ## The constraint: the gate point-check derived from the deployed vanishing argument (not assumed)
 
 The capstones above take `hquot` (the gate point-check) as a hypothesis. Here it is **derived**: the deployed
 verifier opens the `h`-commitment to `expectedHEval` at `x` (the vanishing query), which the multiopen decode
@@ -387,7 +387,7 @@ combination equals the circuit's numerator polynomial at `x` (`hNum : numerator.
 is VK-correctness: the assembly faithfully computes the circuit's full gate+permutation+lookup numerator).
 Together they give the point-check `numerator.eval x = h.eval x·(xⁿ−1)`, which `constraint_identity_of_accept`
 lifts to the polynomial identity by Schwartz–Zippel (`hgood`). So `hquot` is no longer assumed — it is a
-proof from the decode + VK-correctness; the residual is the decode (O3, proven), the VK numerator (§3), and SZ. -/
+proof from the decode + VK-correctness; the residual is the decode (proven), the VK numerator (§3), and SZ. -/
 open Polynomial in
 theorem deployed_constraint_of_decode (numerator h : Polynomial Fp) (n : ℕ) (x eHEval : Fp)
     (hHcol : h.eval x = eHEval) (hNum : numerator.eval x = eHEval * (x ^ n - 1))
@@ -395,10 +395,10 @@ theorem deployed_constraint_of_decode (numerator h : Polynomial Fp) (n : ℕ) (x
     numerator = h * (X ^ n - 1) :=
   constraint_identity_of_accept numerator h n x (by rw [quotientCheck, hNum, hHcol]) hgood
 
-/-! ## O3 closed: the relation over the decoded columns directly (no free `a`)
+/-! ## The relation over the decoded columns directly (no free `a`)
 
 The capstones above derive both the IPA-collapse witness `a` (opens `P`) and the decoded columns `col`, but
-pass them to `hencodes` *unlinked* — review correctly flagged that the `a`↔`col` multiopen-combination tie was
+pass them to `hencodes` *unlinked* — the `a`↔`col` multiopen-combination tie was
 not modeled. This capstone removes the issue at the root: it states the relation **over the decoded columns
 themselves**, which are the actual circuit witness. The collapse witness `a` does not appear — the IPA opening
 is used only *inside* the decode (`decoded_columns_of_accept` calls `deployed_ipa_soundV` per batching
@@ -437,28 +437,28 @@ theorem orchard_verifier_sound_deployed_cols [DecidableEq G] [Inhabited G] {shap
     (hgood col hcol)
   exact hencodes col hcol hsat
 
-/-! ## The integrated capstone: AGM O1 + derived O2 + columns O3, end-to-end (no assumed `hquot`)
+/-! ## The integrated capstone: AGM opening + derived constraint + columns decode, end-to-end (no assumed `hquot`)
 
 `orchard_verifier_sound_deployed_complete` composes the three closed routes into one exported theorem over the
 real assembly:
-* **O1 (AGM)** — `orchard_verifier_sound_deployed_agm` derives `IpaRelation` directly from `DeployedAccepts`,
-  **tree-free** (the augmented binding reads it off the flat equation; no `hIpa`/opening tree).
-* **O3 (decode)** — `decoded_columns_of_accept` recovers the per-column openings; this **does posit trees** —
+* **The opening (AGM)** — `orchard_verifier_sound_deployed_agm` derives `IpaRelation` directly from
+  `DeployedAccepts`, **tree-free** (the augmented binding reads it off the flat equation; no `hIpa`/opening tree).
+* **The decode** — `decoded_columns_of_accept` recovers the per-column openings; this **does posit trees** —
   the batching rewinding `hMulti`, which is the named floor (the decode is *not* tree-free).
-* **O2 (derived)** — `deployed_constraint_of_decode` derives the gate identity from the decoded `h`-column +
-  the VK numerator + SZ (so `hquot` is *not* a hypothesis — it is derived inside).
+* **The constraint (derived)** — `deployed_constraint_of_decode` derives the gate identity from the decoded
+  `h`-column + the VK numerator + SZ (so `hquot` is *not* a hypothesis — it is derived inside).
 
-Scope note: "tree-free" applies to the **opening** (O1), not end-to-end — the decode (O3) uses the batching
+Scope note: "tree-free" applies to the **opening**, not end-to-end — the decode uses the batching
 rewinding `hMulti`. (AGM-ifying the decode — recovering the per-column openings from the `Cᵢ` representations
 + an SZ-over-batching argument instead of `hMulti` — would make it literally tree-free end-to-end; that is a
 lateral move on the floor, not done.) Inputs are exactly the named floor: the AGM representations + augmented
-binding + SZ (O1), the batching rewinding `hMulti` (O3), the VK numerator + SZ (O2), and VK-correctness
-(`hencodes`). -/
+binding + SZ (the opening), the batching rewinding `hMulti` (the decode), the VK numerator + SZ (the
+constraint), and VK-correctness (`hencodes`). -/
 open Polynomial in
 theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {shape : Shape}
     (g : Fin (2 ^ shape.k) → G) (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp)
-    -- O1 (AGM opening) data:
+    -- opening (AGM) data:
     (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds ipRounds cb : Fp)
     (hbind : ∀ {m : ℕ} (g' : Fin m → G), AugmentedBinding (F := Fp) g' uu w)
     (hP : (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
@@ -478,11 +478,11 @@ theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {
     (hRoundsIP : innerProduct aRounds (evalVector shape.k ch.x3) = ipRounds)
     (huConst : (-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z = -(cb * ch.z))
     (huRounds : uRounds = ch.z * ipRounds) (hz : ch.z ≠ 0)
-    -- O3 (decode) data:
+    -- decode data:
     {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
     (hMulti : DeployedMultiopenRewind (⟨shape.k, g, w, uu⟩ : SRS G) (evalVector shape.k ch.x3) C e zBatch
       ch.z (DeployedAccepts (⟨shape.k, g, w, uu⟩ : SRS G) rfl vk ps ch))
-    -- O2 (derived constraint) data:
+    -- constraint (derived) data:
     (fixedCols : ℕ → Polynomial Fp)
     (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ shape.k) → Fp)) → (ℕ → Polynomial Fp))
     (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (xc eHEval : Fp)
@@ -505,15 +505,15 @@ theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {
       combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates = hpoly * (X ^ deg - 1) →
       S) :
     S := by
-  -- O1: the IPA opening, AGM route (no tree)
+  -- the IPA opening, AGM route (no tree)
   have hrel := orchard_verifier_sound_deployed_agm g w uu vk ps ch (evalVector shape.k ch.x3)
     aP aS aRounds pw sw uRounds wRounds ipRounds cb (hbind g) hP hS hRounds hSxi hvVec hsvTerm
     hRoundsIP huConst huRounds hz haccepts
-  -- O3: the per-column decode
+  -- the per-column decode
   obtain ⟨col, hcol⟩ :=
     decoded_columns_of_accept (⟨shape.k, g, w, uu⟩ : SRS G) (evalVector shape.k ch.x3) C e zBatch
       hbind hMulti haccepts
-  -- O2: the gate identity derived from the decoded h-column + VK numerator + SZ
+  -- the gate identity derived from the decoded h-column + VK numerator + SZ
   have hconstraint := deployed_constraint_of_decode
     (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates) hpoly deg xc eHEval
     hHcol (hNum col hcol) (hgood col hcol)

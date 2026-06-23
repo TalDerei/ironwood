@@ -45,7 +45,8 @@ noncomputable instance vestaFpModule [h : Fact VestaOrder] : Module Fp VestaG :=
 the *abstract-curve* assumption is replaced by `Fact VestaOrder` (the published Vesta group order), treated
 exactly as the field modulus is — a `Fact`, kept axiom-free. It inherits the **conditional** status of
 `orchard_verifier_sound_conditional` (assumed extraction + constraint identity; `accepts` not tied to the
-fingerprint); see that theorem's docstring and `notes/fv-review-checklist.md`. -/
+fingerprint); see that theorem's docstring. (The deployed, non-conditional Vesta capstones are
+`orchard_verifier_sound_vesta_complete`/`_closed`/`_constraint` below.) -/
 theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     (srs : SRS VestaG) (hbind : CommitmentBinding (F := Fp) srs)
     {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
@@ -55,12 +56,12 @@ theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     S :=
   orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
 
-/-- **The deployed Orchard verifier is sound over Vesta, with the IPA opening derived (C1 closed).**
-`orchard_verifier_sound_deployed_C1` specialised to `SWPoint Vesta.curve`: the bridge `hFS` supplies only
+/-- **The deployed Orchard verifier is sound over Vesta, with the IPA opening derived.**
+`orchard_verifier_sound_deployed_opening` specialised to `SWPoint Vesta.curve`: the bridge `hFS` supplies only
 the special-soundness transcript tree (the minimal Fiat–Shamir assumption), and `IpaRelation` is *derived*
 from it (`ipa_soundV`), not assumed. The remaining named assumptions are the rewinding (`hFS`), the circuit
-side (`hcirc`, C3), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
-theorem orchard_verifier_sound_vesta_C1 [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+side (`hcirc`), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+theorem orchard_verifier_sound_vesta_opening [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
     {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
@@ -69,15 +70,16 @@ theorem orchard_verifier_sound_vesta_C1 [Fact VestaOrder] [DecidableEq VestaG] [
     (hcirc : ∀ a, IpaRelation srs P b v a → circuitSat a)
     {S : Prop} (hencodes : ∀ a, SnarkRelation srs P b v circuitSat a → S) :
     S :=
-  orchard_verifier_sound_deployed_C1 srs hk vk ps ch haccepts hFS hcirc hencodes
+  orchard_verifier_sound_deployed_opening srs hk vk ps ch haccepts hFS hcirc hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — C1 and C3.** `orchard_verifier_sound_deployed_C3`
-specialised to `SWPoint Vesta.curve`: both conjuncts of `SnarkRelation` are derived — `IpaRelation` via
+/-- **The deployed Orchard verifier is sound over Vesta — opening and constraint both derived.**
+`orchard_verifier_sound_deployed_constraint` specialised to `SWPoint Vesta.curve`: both conjuncts of
+`SnarkRelation` are derived — `IpaRelation` via
 `ipa_soundV` and `circuitSat` (concrete `circuitSatViaGates`) from the verifier's gate point-check `hquot`
 lifted by Schwartz–Zippel (`hgood`). Named assumptions: the rewinding (`hFS`), the gate check (`hquot`), the
 SZ good challenge (`hgood`), the Vesta curve order, and VK-correctness (`hencodes`). -/
-theorem orchard_verifier_sound_vesta_C3 [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+theorem orchard_verifier_sound_vesta_constraint [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
     {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp}
@@ -96,7 +98,7 @@ theorem orchard_verifier_sound_vesta_C3 [Fact VestaOrder] [DecidableEq VestaG] [
     (hencodes : ∀ a, SnarkRelation srs P b v
       (circuitSatViaGates fixedCols decodeAdvice decodeInstance y gates hpoly deg) a → S) :
     S :=
-  orchard_verifier_sound_deployed_C3 srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
+  orchard_verifier_sound_deployed_constraint srs hk vk ps ch fixedCols decodeAdvice decodeInstance y gates
     hpoly deg x haccepts hFS hquot hgood hencodes
 
 open Polynomial in
@@ -132,7 +134,7 @@ theorem orchard_verifier_sound_vesta_full [Fact VestaOrder] [DecidableEq VestaG]
     hpoly deg x hbind hz haccepts hrewind hquot hgood hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — fully closed (O2 + O3).**
+/-- **The deployed Orchard verifier is sound over Vesta — opening, decode, and constraint all derived.**
 `orchard_verifier_sound_deployed_closed` specialised to `SWPoint Vesta.curve`: the IPA opening, the per-column
 multiopen decode (`decodeAdvice`/`decodeInstance` on the genuinely recovered columns), and the gate
 constraint are all derived from the deployed accept. Named floor: the IPA + batching rewinding bridges
@@ -170,13 +172,13 @@ theorem orchard_verifier_sound_vesta_closed [Fact VestaOrder] [DecidableEq Vesta
     y gates hpoly deg x hbind hz haccepts hIpa hMulti hquot hgood hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — the integrated AGM capstone (O1+O2+O3, no tree, no
-assumed `hquot`).** `orchard_verifier_sound_deployed_complete` specialised to `SWPoint Vesta.curve`: the IPA
-opening is derived from `assemble.eval = 0` by the augmented binding (O1, AGM — no rewinding tree), the
-per-column decode is recovered (O3), and the gate identity is derived from the decoded `h`-column + the VK
-numerator + SZ (O2 — `hquot` is *not* a hypothesis). Named floor: the AGM representations + augmented binding
-+ SZ (O1), the batching rewinding (O3), the VK numerator + SZ (O2), the Vesta curve order, and VK-correctness
-(`hencodes`). -/
+/-- **The deployed Orchard verifier is sound over Vesta — the integrated AGM capstone (opening + constraint +
+decode, no tree, no assumed `hquot`).** `orchard_verifier_sound_deployed_complete` specialised to
+`SWPoint Vesta.curve`: the IPA opening is derived from `assemble.eval = 0` by the augmented binding (AGM
+route — no rewinding tree), the per-column decode is recovered, and the gate identity is derived from the
+decoded `h`-column + the VK numerator + SZ (`hquot` is *not* a hypothesis). Named floor: the AGM
+representations + augmented binding + SZ (the opening), the batching rewinding (the decode), the VK
+numerator + SZ (the constraint), the Vesta curve order, and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_complete [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (g : Fin (2 ^ shape.k) → VestaG) (w uu : VestaG) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
