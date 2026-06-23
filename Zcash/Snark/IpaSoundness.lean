@@ -5,18 +5,18 @@ import Zcash.Snark.Consistency
 /-!
 # IPA knowledge soundness: the commitment-soundness of one round (3-special)
 
-This begins the genuine inner-product-argument knowledge-soundness proof — deriving the *opening relation*
+This begins the genuine inner-product-argument knowledge-soundness proof — deriving the opening relation
 `commit g a = P` from the verifier's accept, rather than assuming it.
 
-The key fact (worked out by hand, then here): one IPA round is **3-special-sound** for the *commitment*. At
-a round the verifier folds `g' = g_lo + u⁻¹·g_hi` and `P' = P + u⁻¹·L + u·R` (the prover's cross-terms
-`L`,`R` fixed before the challenge). Given three sub-openings at three distinct challenges,
-`commit g' cᵢ = P + uᵢ⁻¹·L + uᵢ·R`, the parent commitment is pinned: `commit g a = P` for an `a` assembled
-from the `cᵢ` by the Vandermonde combination that extracts the *linear-in-u* coefficient. Two challenges
-suffice to extract the witness but leave `commit g a − P = (u₁+u₂)·X` undetermined — three kill it.
+The key fact: one IPA round is 3-special-sound for the commitment. At a round the verifier folds
+`g' = g_lo + u⁻¹·g_hi` and `P' = P + u⁻¹·L + u·R` (the prover's cross-terms `L`,`R` fixed before the
+challenge). Given three sub-openings at three distinct challenges, `commit g' cᵢ = P + uᵢ⁻¹·L + uᵢ·R`, the
+parent commitment is pinned: `commit g a = P` for an `a` assembled from the `cᵢ` by the Vandermonde
+combination that extracts the linear-in-`u` coefficient. Two challenges suffice to extract the witness but
+leave `commit g a − P = (u₁+u₂)·X` undetermined; three kill it.
 
-Notably this round step needs **no binding** — it is pure module linear algebra. (Binding enters only for
-*uniqueness* of the opening.)
+This round step needs no binding — it is pure module linear algebra. (Binding enters only for uniqueness
+of the opening.)
 
 * `vandermonde3` — three distinct points admit coefficients `lᵢ` with `Σ lᵢ uᵢᵏ = δ_{k,1}` (`k=0,1,2`):
   the functional extracting the linear coefficient of a degree-≤2 polynomial from its three samples.
@@ -30,7 +30,7 @@ namespace Zcash.Snark
 
 variable {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
 
-/-- **Three-point linear-coefficient functional.** For distinct `u₁,u₂,u₃` there are coefficients
+/-- Three-point linear-coefficient functional. For distinct `u₁,u₂,u₃` there are coefficients
 `l₁,l₂,l₃` with `Σ lᵢ = 0`, `Σ lᵢuᵢ = 1`, `Σ lᵢuᵢ² = 0` — i.e. `p ↦ Σ lᵢ·p(uᵢ)` reads off the
 coefficient of `u` from any degree-≤2 `p`. (The `lᵢ` are the `u`-coefficients of the Lagrange basis.) -/
 theorem vandermonde3 (u₁ u₂ u₃ : F) (h12 : u₁ ≠ u₂) (h13 : u₁ ≠ u₃) (h23 : u₂ ≠ u₃) :
@@ -45,14 +45,14 @@ theorem vandermonde3 (u₁ u₂ u₃ : F) (h12 : u₁ ≠ u₂) (h13 : u₁ ≠ 
   refine ⟨-(u₂ + u₃) / ((u₁ - u₂) * (u₁ - u₃)), -(u₁ + u₃) / ((u₂ - u₁) * (u₂ - u₃)),
     -(u₁ + u₂) / ((u₃ - u₁) * (u₃ - u₂)), ?_, ?_, ?_⟩ <;> field_simp <;> ring
 
-/-- **The IPA round is 3-special-sound for the commitment — explicit witness.** Given the three folded
-openings and Vandermonde coefficients `lᵢ` (the `vandermonde3` solution), the *explicit* parent witness
+/-- The IPA round is 3-special-sound for the commitment — explicit witness. Given the three folded
+openings and Vandermonde coefficients `lᵢ` (the `vandermonde3` solution), the explicit parent witness
 `a = (Σ lᵢuᵢ·cᵢ ‖ Σ lᵢ·cᵢ)` opens `P`: `commit g_lo a_lo + commit g_hi a_hi = P`.
 
 The proof multiplies each opening by `uᵢ` to clear the inverse (`uᵢ·A_i + B_i = uᵢ·P + L + uᵢ²·R`), then
 combines by `lᵢ`: the `P`-coefficient becomes `Σ lᵢuᵢ = 1`, while `L` (`Σ lᵢ = 0`) and `R`
-(`Σ lᵢuᵢ² = 0`) cancel, and the `cᵢ`-terms cancel pairwise. No binding. The witness is *explicit* (not
-existential) so the SAME witness can be reused for the inner-product side at `G := F`. -/
+(`Σ lᵢuᵢ² = 0`) cancel, and the `cᵢ`-terms cancel pairwise. No binding. The witness is explicit, not
+existential, so the same witness can be reused for the inner-product side at `G := F`. -/
 theorem ipa_round_commit_with_coeffs {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
     (c₁ c₂ c₃ : Fin m → F) (u₁ u₂ u₃ l₁ l₂ l₃ : F)
     (hl0 : l₁ + l₂ + l₃ = 0) (hl1 : l₁ * u₁ + l₂ * u₂ + l₃ * u₃ = 1)
@@ -87,7 +87,7 @@ theorem ipa_round_commit_with_coeffs {m : ℕ} (g_lo g_hi : Fin m → G) (P L R 
       | linear_combination hl2
       | ring
 
-/-- **The IPA round is 3-special-sound for the commitment.** Three sub-openings at distinct nonzero
+/-- The IPA round is 3-special-sound for the commitment. Three sub-openings at distinct nonzero
 challenges pin the parent opening: `∃ a_lo a_hi, commit g_lo a_lo + commit g_hi a_hi = P`. The existential
 form; the witness is the `vandermonde3` combination (`ipa_round_commit_with_coeffs`). No binding. -/
 theorem ipa_round_commit_sound {m : ℕ} (g_lo g_hi : Fin m → G) (P L R : G)
@@ -132,20 +132,20 @@ theorem commitGen_append {k : ℕ} (g : Fin (2 ^ (k + 1)) → G) (a_lo a_hi : Fi
 
 /-! ## The IPA soundness recursion -/
 
-/-- A **3-ary IPA transcript tree** for `d` rounds. At each round the prover's two cross-commitments
+/-- A 3-ary IPA transcript tree for `d` rounds. At each round the prover's two cross-commitments
 `L`, `R` (fixed before the challenge) and three sub-transcripts answering three challenges; at a leaf the
-final scalar. The 3-arity is exactly what `ipa_round_commit_sound` consumes (two challenges extract the
-witness, the third pins the commitment). -/
+final scalar. The 3-arity is what `ipa_round_commit_sound` consumes (two challenges extract the witness,
+the third pins the commitment). -/
 inductive IpaTree (F G : Type*) : ℕ → Type _ where
   | leaf : F → IpaTree F G 0
   | node {d : ℕ} : G → G → F → F → F →
       IpaTree F G d → IpaTree F G d → IpaTree F G d → IpaTree F G (d + 1)
 
-/-- The IPA verifier **accepts** a transcript tree against generators `g` and commitment `P`: at a leaf,
+/-- The IPA verifier accepts a transcript tree against generators `g` and commitment `P`: at a leaf,
 the final check `P = [c]·g₀` (`= commit g (const c)`); at a node, the three challenges are distinct and
 nonzero and each sub-transcript opens the verifier's folded commitment `P + uᵢ⁻¹·L + uᵢ·R` against the
-folded generators `foldGens g uᵢ`. This is the verifier's actual recursion (external `P`, prover `L`/`R`),
-the object the soundness peels back. -/
+folded generators `foldGens g uᵢ`. This is the verifier's recursion (external `P`, prover `L`/`R`), the
+object the soundness peels back. -/
 def IpaAccept : {d : ℕ} → (Fin (2 ^ d) → G) → G → IpaTree F G d → Prop
   | 0, g, P, .leaf c => P = commitGen g (fun _ => c)
   | _ + 1, g, P, .node L R u₁ u₂ u₃ t₁ t₂ t₃ =>
@@ -154,11 +154,11 @@ def IpaAccept : {d : ℕ} → (Fin (2 ^ d) → G) → G → IpaTree F G d → Pr
         IpaAccept (foldGens g u₂) (P + u₂⁻¹ • L + u₂ • R) t₂ ∧
         IpaAccept (foldGens g u₃) (P + u₃⁻¹ • L + u₃ • R) t₃
 
-/-- **IPA knowledge soundness — the opening, derived (not assumed).** An accepting transcript tree yields a
+/-- IPA knowledge soundness — the opening, derived (not assumed). An accepting transcript tree yields a
 witness opening the commitment: `∃ a, commit g a = P`. By induction on the tree: the leaf gives `a = const c`
 directly; a node takes the three sub-witnesses from the IH, pins the parent commitment with
-`ipa_round_commit_sound`, and reassembles via `commitGen_append`. The whole argument uses **no binding** —
-3-special soundness alone pins the opening. (Binding/DLR enters only for *uniqueness*, `ipaRelation_unique`.) -/
+`ipa_round_commit_sound`, and reassembles via `commitGen_append`. The whole argument uses no binding —
+3-special soundness alone pins the opening. (Binding/DLR enters only for uniqueness, `ipaRelation_unique`.) -/
 theorem ipa_sound : {d : ℕ} → (g : Fin (2 ^ d) → G) → (P : G) → (t : IpaTree F G d) →
     IpaAccept g P t → ∃ a : Fin (2 ^ d) → F, commitGen g a = P
   | 0, g, P, .leaf c, h => ⟨fun _ => c, h.symm⟩
@@ -173,14 +173,14 @@ theorem ipa_sound : {d : ℕ} → (g : Fin (2 ^ d) → G) → (P : G) → (t : I
 
 /-! ## The full opening relation (commitment + inner product)
 
-The inner product `⟨a, b⟩ = v` is *the same theorem at `G := F`*: `commitGen b a = ∑ aⱼ • bⱼ = ⟨a, b⟩`, so
+The inner product `⟨a, b⟩ = v` is the same theorem at `G := F`: `commitGen b a = ∑ aⱼ • bⱼ = ⟨a, b⟩`, so
 the eval vector `b` plays the role of the generators and the value `v` the role of the commitment, with the
 verifier folding `b` by `foldGens` exactly as it folds `g` (`innerProduct_round`). Carrying both in one
-tree and reusing `ipa_round_commit_with_coeffs` for each (with the SAME explicit witness) derives the full
+tree and reusing `ipa_round_commit_with_coeffs` for each (with the same explicit witness) derives the full
 `IpaRelation`. -/
 
-/-- A 3-ary IPA transcript tree carrying both the **commitment** cross-terms `L`,`R` (in `G`) and the
-**inner-product** cross-terms `Lv`,`Rv` (in `F`) per round. -/
+/-- A 3-ary IPA transcript tree carrying both the commitment cross-terms `L`,`R` (in `G`) and the
+inner-product cross-terms `Lv`,`Rv` (in `F`) per round. -/
 inductive IpaTreeV (F G : Type*) : ℕ → Type _ where
   | leaf : F → IpaTreeV F G 0
   | node {d : ℕ} : G → G → F → F → F → F → F →
@@ -197,12 +197,12 @@ def IpaAcceptV : {d : ℕ} → (Fin (2 ^ d) → G) → (Fin (2 ^ d) → F) → G
         IpaAcceptV (foldGens g u₂) (foldGens b u₂) (P + u₂⁻¹ • L + u₂ • R) (v + u₂⁻¹ • Lv + u₂ • Rv) t₂ ∧
         IpaAcceptV (foldGens g u₃) (foldGens b u₃) (P + u₃⁻¹ • L + u₃ • R) (v + u₃⁻¹ • Lv + u₃ • Rv) t₃
 
-/-- **Full IPA knowledge soundness — the opening relation, derived from acceptance.** An accepting
-transcript tree yields a single witness `a` that both opens the commitment and gives the claimed inner
-product: `∃ a, commit g a = P ∧ commit b a = v` (and `commit b a = ⟨a, b⟩`). The two conjuncts share the
-*same* `a` — the explicit Vandermonde combination — by applying `ipa_round_commit_with_coeffs` to the
-commitment (`G`) and the inner product (`G := F`, generators `b`) with one set of coefficients. Binding-free.
-This is `IpaRelation` (`commit a = P ∧ ⟨a,b⟩ = v`) discharged from the verifier's accept. -/
+/-- Full IPA knowledge soundness — the opening relation, derived from acceptance. An accepting transcript
+tree yields a single witness `a` that both opens the commitment and gives the claimed inner product:
+`∃ a, commit g a = P ∧ commit b a = v` (and `commit b a = ⟨a, b⟩`). The two conjuncts share the same `a`
+— the explicit Vandermonde combination — by applying `ipa_round_commit_with_coeffs` to the commitment
+(`G`) and the inner product (`G := F`, generators `b`) with one set of coefficients. Binding-free. This is
+`IpaRelation` (`commit a = P ∧ ⟨a,b⟩ = v`) discharged from the verifier's accept. -/
 theorem ipa_soundV : {d : ℕ} → (g : Fin (2 ^ d) → G) → (b : Fin (2 ^ d) → F) → (P : G) → (v : F) →
     (t : IpaTreeV F G d) → IpaAcceptV g b P v t →
     ∃ a : Fin (2 ^ d) → F, commitGen g a = P ∧ commitGen b a = v
@@ -222,22 +222,16 @@ theorem ipa_soundV : {d : ℕ} → (g : Fin (2 ^ d) → G) → (b : Fin (2 ^ d) 
         exact ipa_round_commit_with_coeffs (loHalf b) (hiHalf b) v Lv Rv c₁ c₂ c₃ u₁ u₂ u₃ l₁ l₂ l₃
           hl0 hl1 hl2 hu₁ hu₂ hu₃ hv₁ hv₂ hv₃
 
-/-- `commitGen b a` over `G := F` is exactly the inner product `⟨a, b⟩`, so `ipa_soundV`'s second conjunct
-is the IPA's evaluation claim. -/
-theorem commitGen_eq_innerProduct {n : ℕ} (b a : Fin n → F) :
-    commitGen b a = ∑ i, a i * b i := by
-  simp only [commitGen, smul_eq_mul]
-
 /-! ## The multiopen batch decode
 
 The deployed verifier batches the per-column commitments by powers of a challenge `z` (the `x₁`/`x₄`
-folds), opens the *single* batched commitment, and the inner-product argument extracts the *combined*
-witness. To recover the *individual* column openings — what the gate check needs — one rewinds the batching
-challenge and solves a Vandermonde system over `n` distinct `z`'s: exactly the `ipa_soundV` technique one
-layer up, but with no cross terms (the batch is a plain linear combination), so a single `n`-point
-Vandermonde inverse suffices. -/
+folds), opens the single batched commitment, and the inner-product argument extracts the combined witness.
+To recover the individual column openings — what the gate check needs — one rewinds the batching challenge
+and solves a Vandermonde system over `n` distinct `z`'s: the `ipa_soundV` technique one layer up, but with
+no cross terms (the batch is a plain linear combination), so a single `n`-point Vandermonde inverse
+suffices. -/
 
-/-- **General Vandermonde inverse.** For `n` distinct points `z`, there are coefficients `μ` with
+/-- General Vandermonde inverse. For `n` distinct points `z`, there are coefficients `μ` with
 `Σ_k μ i k · (z k)ʲ = δ_{i,j}` — the functional reading off the `i`-th coefficient of a degree-`<n`
 polynomial from its `n` samples. (The `n = 3` special case is `vandermonde3`.) From invertibility of the
 Vandermonde matrix (`det = ∏_{i<j}(z j − z i) ≠ 0` for distinct points). -/
@@ -265,7 +259,7 @@ theorem commitGen_sum {m : ℕ} (g : Fin m → G) {ι : Type*} (s : Finset ι) (
   | empty => simp [commitGen]
   | insert a s ha ih => rw [Finset.sum_insert ha, Finset.sum_insert ha, commitGen_add_left, ih]
 
-/-- **Batch-opening soundness — explicit witness.** Given the batched openings
+/-- Batch-opening soundness — explicit witness. Given the batched openings
 `commit g (a k) = Σⱼ (z k)ʲ · C j` at the `n` challenges and the Vandermonde coefficients `μ`, the explicit
 combination `Σ_k μ i k · a k` opens the `i`-th individual commitment: `commit g (Σ_k μ i k · a k) = C i`. -/
 theorem batch_open_with_coeffs {m n : ℕ} (g : Fin m → G) (C : Fin n → G) (z : Fin n → F)
@@ -279,8 +273,8 @@ theorem batch_open_with_coeffs {m n : ℕ} (g : Fin m → G) (C : Fin n → G) (
   simp only [← Finset.sum_smul, hμ, ite_smul, one_smul, zero_smul, Finset.sum_ite_eq,
     Finset.mem_univ, if_true]
 
-/-- **The multiopen batch decode is sound.** From the batched commitment/value openings at `n` distinct
-challenges, each individual column has a single witness opening it to its commitment `C i` *and* giving its
+/-- The multiopen batch decode is sound. From the batched commitment/value openings at `n` distinct
+challenges, each individual column has a single witness opening it to its commitment `C i` and giving its
 claimed evaluation `e i`: `∃ col, ∀ i, commit g (col i) = C i ∧ ⟨col i, b⟩ = e i`. The same explicit
 Vandermonde combination serves both (the value side is `batch_open_with_coeffs` at `G := F`,
 `commit b = ⟨·,b⟩`). This recovers the per-column openings the gate check (`circuitSatViaGates`) consumes —
@@ -293,21 +287,5 @@ theorem batch_open_soundV {m n : ℕ} (g : Fin m → G) (b : Fin m → F) (C : F
   obtain ⟨μ, hμ⟩ := vandermonde_inv z hz
   exact ⟨fun i => ∑ k, μ i k • a k, fun i =>
     ⟨batch_open_with_coeffs g C z a μ hμ haC i, batch_open_with_coeffs b e z a μ hμ hae i⟩⟩
-
-/-- **The full two-layer decode: per-column openings from the IPA trees.** Given, for each of the `n`
-distinct batching challenges `z k`, an accepting IPA transcript tree opening the *batched* commitment
-`Σⱼ (z k)ʲ·C j` to the batched value `Σⱼ (z k)ʲ·e j`, every individual column opens to its commitment and
-its claimed evaluation. Composes `ipa_soundV` (the IPA opening at each rewound `z k`) with
-`batch_open_soundV` (the Vandermonde decode), all binding-free. This is the multiopen knowledge soundness
-the gate check sits on top of. -/
-theorem multiopen_decode_of_trees {d n : ℕ} (g : Fin (2 ^ d) → G) (b : Fin (2 ^ d) → F)
-    (C : Fin n → G) (e : Fin n → F) (z : Fin n → F) (hz : Function.Injective z)
-    (t : Fin n → IpaTreeV F G d)
-    (ht : ∀ k, IpaAcceptV g b (∑ j : Fin n, z k ^ (j : ℕ) • C j)
-      (∑ j : Fin n, z k ^ (j : ℕ) • e j) (t k)) :
-    ∃ col : Fin n → (Fin (2 ^ d) → F), ∀ i, commitGen g (col i) = C i ∧ commitGen b (col i) = e i := by
-  choose a hac hae using fun k => ipa_soundV g b (∑ j : Fin n, z k ^ (j : ℕ) • C j)
-    (∑ j : Fin n, z k ^ (j : ℕ) • e j) (t k) (ht k)
-  exact batch_open_soundV g b C e z hz a hac hae
 
 end Zcash.Snark

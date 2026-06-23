@@ -12,9 +12,9 @@ against the reads in `plonk/verifier.rs` (and the sub-argument verifiers).
 A single Orchard proof covers a whole bundle: `Proof::verify` ([TalDerei/orchard](https://github.com/TalDerei/orchard) `src/circuit.rs`) passes
 all `N` actions' instances to `plonk::verify_proof`, which reads the per-action elements
 `num_proofs = N` times against one shared set of challenges and a single multiopen / IPA opening. So
-the proof string splits into **per-sub-proof** vectors (indexed by `Fin numProofs`) and **shared**
-elements. The verifier reads all sub-proofs' advice, then all sub-proofs' lookups, and so on,
-which `Fin numProofs → Fin _ → …` reproduces; the field order below is the read order.
+the proof string splits into per-sub-proof vectors (indexed by `Fin numProofs`) and shared elements.
+The verifier reads all sub-proofs' advice, then all sub-proofs' lookups, and so on, which
+`Fin numProofs → Fin _ → …` reproduces; the field order below is the read order.
 
 `Shape` records the per-circuit counts (read off the verifying key) that fix every vector length;
 `ProofString shape F G` is the proof itself, over a field carrier `F` and a group carrier `G`. Both

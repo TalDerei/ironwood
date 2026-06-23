@@ -15,46 +15,47 @@ This module provides the match's logical content:
 
 * `MsmMatch` — two MSMs match iff their `g`/`w`/`u` coefficients are equal and their `other` term lists
   agree up to reordering (`List.Perm`), and `msmMatch_eval` shows a match implies equal evaluations (the
-  term sum is order-independent). So the match is the concrete comparison against a captured MSM. Because
-  both sides use the *same* proof commitments as the bases (the Lean assembly's `G` elements are the
-  captured proof's commitments), the bases agree by construction, and the match reduces to the concrete
-  `F_p` scalar coefficients (with `other` compared as a multiset, since assembly order is immaterial).
-* `fingerprint_match_random_eval_sound` — the soundness of the cheaper **random-evaluation** match: viewing
+  term sum is order-independent). Both sides use the same proof commitments as the bases (the Lean
+  assembly's `G` elements are the captured proof's commitments), so the bases agree by construction and
+  the match reduces to the `F_p` scalar coefficients, with `other` compared as a multiset since assembly
+  order is immaterial.
+* `fingerprint_match_random_eval_sound` — the soundness of the cheaper random-evaluation match: viewing
   a coefficient difference as a polynomial in the proof scalars and challenges, a uniformly random
-  evaluation fails to witness a real mismatch only with probability `≤ d / p` (`Schwartz–Zippel`, via
-  `fingerprint_schwartz_zippel`). This is a **generic** statement about an abstract polynomial; it is
-  **not** instantiated at `assemble`'s actual coefficient differences (no degree bound proved for them, no
-  union bound across terms), so "one random proof suffices up to `d / p`" is **not yet a Lean link**. The
-  numeric fixture match (`native_decide`) establishes agreement on **one captured proof**, full stop.
+  evaluation fails to witness a real mismatch only with probability `≤ d / p` (Schwartz–Zippel, via
+  `fingerprint_schwartz_zippel`). This is a generic statement about an abstract polynomial; it is *not*
+  instantiated at `assemble`'s actual coefficient differences (no degree bound proved for them, no union
+  bound across terms), so "one random proof suffices up to `d / p`" is not yet a Lean link. The numeric
+  fixture match (`native_decide`) establishes agreement on one captured proof, full stop.
 * `gScalars_card` — the structural cross-check: the assembled MSM carries `2 ^ k` SRS-generator
   coefficients, matching the captured Orchard fingerprint's `2 ^ 11 = 2048`.
 
-**What remains external.** The Rust capture lives in the personal forks: the capture APIs
-(`FingerprintStrategy`, `ChallengeRecorder`, `MSM::fingerprint_terms`) in
+## What remains external
+
+The Rust capture lives in the personal forks: the capture APIs (`FingerprintStrategy`,
+`ChallengeRecorder`, `MSM::fingerprint_terms`) in
 [TalDerei/halo2#1](https://github.com/TalDerei/halo2/pull/1), and the capture test in
-[TalDerei/orchard#1](https://github.com/TalDerei/orchard/pull/1). Running the *numeric* match on the real
+[TalDerei/orchard#1](https://github.com/TalDerei/orchard/pull/1). Running the numeric match on the real
 capture needs that captured fixture (the `2048` g-scalars, `100` commitment terms, and `22` challenges)
 serialized and loaded, the verifying key supplied as a `VerifyingKey`, and the `construct_intermediate_sets`
 grouping (the one piece `assembleFinalMsm` takes as input). With those, the match is the decidable
 coefficient comparison `MsmMatch` above. The group bases stay abstract in Lean (the Pasta curve law is
 hand-waved), so the numeric comparison is of the scalar coefficients, with the bases shared by construction.
-In the fixture the bases are opaque `ℕ` tags (`G := ℕ`), so the match says **nothing about the Vesta
-curve**: the faithfulness "same `ℕ` tag ⇔ same Vesta point" lives in the Rust capture (the forks), not in
-Lean.
+In the fixture the bases are opaque `ℕ` tags (`G := ℕ`), so the match says nothing about the Vesta curve:
+the faithfulness "same `ℕ` tag ⇔ same Vesta point" lives in the Rust capture, not in Lean.
 -/
 
 namespace Zcash.Snark
 
-/-- Two MSMs **match** iff their SRS-generator coefficients and the `w`/`u` coefficients are equal, and
-their `other` term lists agree **up to reordering** (`List.Perm`). The MSM is
+/-- Two MSMs match iff their SRS-generator coefficients and the `w`/`u` coefficients are equal, and
+their `other` term lists agree up to reordering (`List.Perm`). The MSM is
 `Σᵢ gScalarsᵢ • gᵢ + wScalar • w + uScalar • u + Σ (c • P)`; the final term sum is order-independent, so
 a permutation of `other` denotes the same MSM and the same evaluation (`msmMatch_eval`). The term order
-is only a serialization artifact of how each assembler appends, so the match is order-insensitive there. -/
+is only a serialization artifact of how each assembler appends, hence the order-insensitivity there. -/
 def MsmMatch {k : ℕ} {F G : Type*} (m₁ m₂ : Msm k F G) : Prop :=
   m₁.gScalars = m₂.gScalars ∧ m₁.wScalar = m₂.wScalar ∧ m₁.uScalar = m₂.uScalar ∧ m₁.other.Perm m₂.other
 
-/-- The fingerprint match implies **equal evaluations**: matching MSMs denote the same group element
-under any SRS, so the deployed verifier's accept check (`eval = identity`) transfers. The `g`/`w`/`u`
+/-- The fingerprint match implies equal evaluations: matching MSMs denote the same group element under
+any SRS, so the deployed verifier's accept check (`eval = identity`) transfers. The `g`/`w`/`u`
 coefficients are equal and the `other` terms agree up to reordering, and the MSM's term sum is
 order-independent. -/
 theorem msmMatch_eval {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
@@ -70,10 +71,10 @@ instance {k : ℕ} {F G : Type*} [DecidableEq F] [DecidableEq G] (m₁ m₂ : Ms
   unfold MsmMatch; infer_instance
 
 open MvPolynomial Finset Fintype in
-/-- **Soundness of the random-evaluation match (Schwartz–Zippel).** A coefficient of the assembled MSM
+/-- Soundness of the random-evaluation match (Schwartz–Zippel). A coefficient of the assembled MSM
 minus the captured one is a polynomial `p` in the proof scalars and challenges; the two MSMs genuinely
 differ in that coefficient exactly when `p ≠ 0`. Then the fraction of challenge/scalar assignments at
-which the coefficient nonetheless agrees — a *false* match at a uniformly random evaluation — is at most
+which the coefficient nonetheless agrees — a false match at a uniformly random evaluation — is at most
 `deg p / p_field`. So a single random evaluation detects a mismatch except with probability `≤ d / p`,
 and one random proof validates the assembly up to that bound. This is `fingerprint_schwartz_zippel`
 applied to the coefficient difference. -/

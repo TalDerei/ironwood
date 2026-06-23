@@ -4,22 +4,29 @@ import Zcash.Snark.Weld
 import CompElliptic.Curves.Pasta
 
 /-!
-# The verifier group instantiated at the concrete Vesta curve
+# Vesta instantiation: the verifier group at the deployed curve
 
-`Zcash.Snark.orchard_verifier_sound` is proven for an abstract `Fp`-module `G`. Here we pin `G` to the
-*actual* Vesta curve `SWPoint Vesta.curve` (`y² = x³ + 5`), whose group law CompElliptic/mathlib have
-already proven (associativity transported from `WeierstrassCurve.Affine.Point`). The only structure the
-`Fp`-action needs that the curve does not already carry is the Vesta **group order**: every point is
-`p`-torsion (`p = scalarFieldOrder`, the published Vesta order — equivalently the order divides `p`, and
-being a nontrivial prime it equals `p`).
+The soundness theorems of `Zcash.Snark.Main` / `Zcash.Snark.Weld` are proven for an abstract
+`Fp`-module `G`. Here `G` is pinned to the actual Vesta curve `SWPoint Vesta.curve` (`y² = x³ + 5`),
+whose group law CompElliptic/mathlib have already proven (associativity transported from
+`WeierstrassCurve.Affine.Point`). The deployed Orchard verifier runs over Vesta, so these theorems are
+the concrete-curve forms of the abstract capstones.
 
-We treat this **exactly like the field modulus** — as a `Fact`, the same idiom as
-`Fact (Nat.Prime scalarFieldOrder)`. The one difference is provenance: CompElliptic *discharges* the field
-`Fact` with a Pratt primality certificate (cheap to check), whereas the curve order has no analogous
-certificate in the library — pinning it is point-counting (Schoof / Hasse), not formalized. So the
-curve-order `Fact` stays an *assumption* (a hypothesis of the Vesta theorem) rather than a proven global
-instance, which is what keeps the development axiom-free. Given that `Fact`, `AddCommGroup.zmodModule`
-turns the curve into an `Fp`-module and the end-to-end theorem applies verbatim.
+## The setting
+
+The only structure the `Fp`-action needs that the curve does not already carry is the Vesta group
+order: every point is `p`-torsion (`p = scalarFieldOrder`, the published Vesta order — the order
+divides `p`, and being a nontrivial prime it equals `p`). Given that, `AddCommGroup.zmodModule`
+turns the curve into an `Fp`-module and the end-to-end theorems apply verbatim.
+
+## Assumptions
+
+* **Vesta group order** (`Fact VestaOrder`) — every point is `p`-torsion. Treated as the field
+  modulus is, via a `Fact` (the idiom of `Fact (Nat.Prime scalarFieldOrder)`). The difference is
+  provenance: CompElliptic discharges the field `Fact` with a Pratt primality certificate (cheap to
+  check), whereas the curve order has no analogous certificate in the library — pinning it is
+  point-counting (Schoof / Hasse), not formalized. So it stays a hypothesis of each Vesta theorem
+  rather than a proven global instance, which keeps the development axiom-free.
 -/
 
 namespace Zcash.Snark
@@ -29,24 +36,23 @@ open CompElliptic.Curves.Pasta CompElliptic.CurveForms.ShortWeierstrass
 /-- The verifier group `E_q`, concretely: the points of the Vesta curve `y² = x³ + 5`. -/
 abbrev VestaG := SWPoint Vesta.curve
 
-/-- **The Vesta group order, as a proposition** (cf. `Nat.Prime scalarFieldOrder` for the field): every
+/-- The Vesta group order as a proposition (cf. `Nat.Prime scalarFieldOrder` for the field): every
 Vesta point is `p`-torsion, i.e. the group order divides `p = scalarFieldOrder`. Carried as a `Fact`,
-exactly like the field modulus — but, lacking a point-counting certificate, left as an assumption. -/
+like the field modulus — but, lacking a point-counting certificate, left as an assumption. -/
 abbrev VestaOrder : Prop := ∀ P : VestaG, (scalarFieldOrder : ℕ) • P = 0
 
 /-- Given the Vesta group order (`Fact VestaOrder`), the curve is an `Fp`-module: `AddCommGroup.zmodModule`
-on the `p`-torsion. A *conditional* instance — it fires only when the order `Fact` is in scope, so it adds
+on the `p`-torsion. A conditional instance — it fires only when the order `Fact` is in scope, so it adds
 no axiom (the `Fact` is supplied as a hypothesis, never globally). -/
 noncomputable instance vestaFpModule [h : Fact VestaOrder] : Module Fp VestaG :=
   AddCommGroup.zmodModule h.out
 
-/-- **The conditional soundness composition, over the concrete Vesta curve.** This is
-`orchard_verifier_sound_conditional` with the abstract `Fp`-module specialised to `SWPoint Vesta.curve`:
-the *abstract-curve* assumption is replaced by `Fact VestaOrder` (the published Vesta group order), treated
-exactly as the field modulus is — a `Fact`, kept axiom-free. It inherits the **conditional** status of
-`orchard_verifier_sound_conditional` (assumed extraction + constraint identity; `accepts` not tied to the
-fingerprint); see that theorem's docstring. (The deployed, non-conditional Vesta capstones are
-`orchard_verifier_sound_vesta_complete`/`_closed`/`_constraint` below.) -/
+/-- The conditional soundness composition over the concrete Vesta curve:
+`orchard_verifier_sound_conditional` with the abstract `Fp`-module specialised to `SWPoint Vesta.curve`,
+the abstract-curve assumption replaced by `Fact VestaOrder` (the published Vesta group order). It
+inherits the conditional status of `orchard_verifier_sound_conditional` (assumed extraction + constraint
+identity; `accepts` not tied to the fingerprint); see that docstring. The deployed, non-conditional
+Vesta capstones are `orchard_verifier_sound_vesta_complete`/`_closed`/`_constraint` below. -/
 theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     (srs : SRS VestaG) (hbind : CommitmentBinding (F := Fp) srs)
     {P : VestaG} {b : Fin (2 ^ srs.k) → Fp} {v : Fp} {circuitSat : (Fin (2 ^ srs.k) → Fp) → Prop}
@@ -56,11 +62,11 @@ theorem orchard_verifier_sound_vesta_conditional [Fact VestaOrder]
     S :=
   orchard_verifier_sound_conditional srs hbind haccepts hextract hencodes
 
-/-- **The deployed Orchard verifier is sound over Vesta, with the IPA opening derived.**
-`orchard_verifier_sound_deployed_opening` specialised to `SWPoint Vesta.curve`: the bridge `hFS` supplies only
-the special-soundness transcript tree (the minimal Fiat–Shamir assumption), and `IpaRelation` is *derived*
-from it (`ipa_soundV`), not assumed. The remaining named assumptions are the rewinding (`hFS`), the circuit
-side (`hcirc`), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+/-- The deployed Orchard verifier is sound over Vesta, with the IPA opening derived.
+`orchard_verifier_sound_deployed_opening` specialised to `SWPoint Vesta.curve`: the bridge `hFS` supplies
+only the special-soundness transcript tree (the minimal Fiat–Shamir assumption), and `IpaRelation` is
+derived from it (`ipa_soundV`), not assumed. Named assumptions: the rewinding (`hFS`), the circuit side
+(`hcirc`), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_opening [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
@@ -73,12 +79,12 @@ theorem orchard_verifier_sound_vesta_opening [Fact VestaOrder] [DecidableEq Vest
   orchard_verifier_sound_deployed_opening srs hk vk ps ch haccepts hFS hcirc hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — opening and constraint both derived.**
+/-- The deployed Orchard verifier is sound over Vesta, opening and constraint both derived.
 `orchard_verifier_sound_deployed_constraint` specialised to `SWPoint Vesta.curve`: both conjuncts of
-`SnarkRelation` are derived — `IpaRelation` via
-`ipa_soundV` and `circuitSat` (concrete `circuitSatViaGates`) from the verifier's gate point-check `hquot`
-lifted by Schwartz–Zippel (`hgood`). Named assumptions: the rewinding (`hFS`), the gate check (`hquot`), the
-SZ good challenge (`hgood`), the Vesta curve order, and VK-correctness (`hencodes`). -/
+`SnarkRelation` are derived — `IpaRelation` via `ipa_soundV`, and `circuitSat` (concrete
+`circuitSatViaGates`) from the verifier's gate point-check `hquot` lifted by Schwartz–Zippel (`hgood`).
+Named assumptions: the rewinding (`hFS`), the gate check (`hquot`), the SZ good challenge (`hgood`), the
+Vesta curve order, and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_constraint [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
@@ -102,14 +108,14 @@ theorem orchard_verifier_sound_vesta_constraint [Fact VestaOrder] [DecidableEq V
     hpoly deg x haccepts hFS hquot hgood hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — full weld, `U`/`W`/`S` peeled.**
-`orchard_verifier_sound_deployed_full` specialised to `SWPoint Vesta.curve`: the IPA opening is derived over
-halo2's concrete `U`/`W`/`S` structure (`deployed_ipa_soundV` — the value-binding `U`, blinding `W` and
-synthetic-blinding `S`/`ξ` peeled via the augmented binding), the constraint via the gate point-check; the
-eval vector is pinned to `evalVector srs.k ch.x3`. Named assumptions (the floor): the pure rewinding
-(`hrewind`), the augmented binding (`hbind`, DLR/AGM on `srs.u`,`srs.w`), the binding challenge
-(`ch.z ≠ 0`), the gate point-check + SZ good challenge (`hquot`/`hgood`), the Vesta curve order
-(`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+/-- The deployed Orchard verifier is sound over Vesta — full weld, `U`/`W`/`S` peeled.
+`orchard_verifier_sound_deployed_full` specialised to `SWPoint Vesta.curve`: the IPA opening is derived
+over halo2's concrete `U`/`W`/`S` structure (`deployed_ipa_soundV` — the value-binding `U`, blinding `W`
+and synthetic-blinding `S`/`ξ` peeled via the augmented binding), the constraint via the gate point-check;
+the eval vector is pinned to `evalVector srs.k ch.x3`. Named floor: the rewinding (`hrewind`), the
+augmented binding (`hbind`, DLR/AGM on `srs.u`,`srs.w`), the binding challenge (`ch.z ≠ 0`), the gate
+point-check + SZ good challenge (`hquot`/`hgood`), the Vesta curve order (`Fact VestaOrder`), and
+VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_full [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp) {P : VestaG} {v : Fp}
@@ -134,12 +140,12 @@ theorem orchard_verifier_sound_vesta_full [Fact VestaOrder] [DecidableEq VestaG]
     hpoly deg x hbind hz haccepts hrewind hquot hgood hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — opening, decode, and constraint all derived.**
-`orchard_verifier_sound_deployed_closed` specialised to `SWPoint Vesta.curve`: the IPA opening, the per-column
-multiopen decode (`decodeAdvice`/`decodeInstance` on the genuinely recovered columns), and the gate
-constraint are all derived from the deployed accept. Named floor: the IPA + batching rewinding bridges
-(`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0`, the gate point-check + SZ (`hquot`/`hgood`),
-the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
+/-- The deployed Orchard verifier is sound over Vesta — opening, decode, and constraint all derived.
+`orchard_verifier_sound_deployed_closed` specialised to `SWPoint Vesta.curve`: the IPA opening, the
+per-column multiopen decode (`decodeAdvice`/`decodeInstance` on the genuinely recovered columns), and the
+gate constraint are all derived from the deployed accept. Named floor: the IPA + batching rewinding
+bridges (`hIpa`, `hMulti`), the augmented binding (`hbind`), `ch.z ≠ 0`, the gate point-check + SZ
+(`hquot`/`hgood`), the Vesta curve order (`Fact VestaOrder`), and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_closed [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (srs : SRS VestaG) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp VestaG)
     (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp) {P : VestaG} {v : Fp}
@@ -172,12 +178,12 @@ theorem orchard_verifier_sound_vesta_closed [Fact VestaOrder] [DecidableEq Vesta
     y gates hpoly deg x hbind hz haccepts hIpa hMulti hquot hgood hencodes
 
 open Polynomial in
-/-- **The deployed Orchard verifier is sound over Vesta — the integrated AGM capstone (opening + constraint +
-decode, no tree, no assumed `hquot`).** `orchard_verifier_sound_deployed_complete` specialised to
-`SWPoint Vesta.curve`: the IPA opening is derived from `assemble.eval = 0` by the augmented binding (AGM
-route — no rewinding tree), the per-column decode is recovered, and the gate identity is derived from the
-decoded `h`-column + the VK numerator + SZ (`hquot` is *not* a hypothesis). Named floor: the AGM
-representations + augmented binding + SZ (the opening), the batching rewinding (the decode), the VK
+/-- The deployed Orchard verifier is sound over Vesta — the integrated AGM capstone (opening, constraint,
+and decode end-to-end, no opening tree, no assumed `hquot`). `orchard_verifier_sound_deployed_complete`
+specialised to `SWPoint Vesta.curve`: the IPA opening is derived from `assemble.eval = 0` by the augmented
+binding (AGM route, no rewinding tree), the per-column decode is recovered, and the gate identity is
+derived from the decoded `h`-column + the VK numerator + SZ, so `hquot` is not a hypothesis. Named floor:
+the AGM representations + augmented binding + SZ (the opening), the batching rewinding (the decode), the VK
 numerator + SZ (the constraint), the Vesta curve order, and VK-correctness (`hencodes`). -/
 theorem orchard_verifier_sound_vesta_complete [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
     {shape : Shape} (g : Fin (2 ^ shape.k) → VestaG) (w uu : VestaG) (vk : VerifyingKey shape Fp VestaG)

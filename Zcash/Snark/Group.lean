@@ -3,11 +3,11 @@ import Mathlib
 /-!
 # The verifier group `E_q` and the structured reference string
 
-The halo2 verifier operates over the **Vesta** curve `E_q` (`vesta::Affine`): every commitment in the
+The halo2 verifier operates over the Vesta curve `E_q` (`vesta::Affine`): every commitment in the
 proof, every reference-string generator, and the final multiscalar-multiplication (MSM) check live in
 this group. We model the group abstractly as an `F`-module `G` — the only structure the verifier's MSM
-uses is the `F`-linear combination of group elements (`F = F_p`, the scalar field). The Pasta group
-*law* is hand-waved; the development never reaches into curve arithmetic.
+uses is the `F`-linear combination of group elements (`F = F_p`, the scalar field). The Pasta group law
+is hand-waved; the development never reaches into curve arithmetic.
 
 We keep `G` abstract rather than instantiating it at CompElliptic's concrete Vesta curve
 (`SWPoint Vesta`) on purpose. The MSM needs only the `F`-linear (module) structure, which the abstract

@@ -13,8 +13,8 @@ the linear combination
 
   `(∑ᵢ gScalarsᵢ • gᵢ) + wScalar • w + uScalar • u + Σ (c • P)`,
 
-and the verifier's verdict is `eval srs m = 0`. This is the *polynomial-coefficient* form of the
-fingerprint — the exact symbolic combination; a random evaluation of it is a separate soundness tool.
+and the verifier's verdict is `eval srs m = 0`. This is the exact symbolic combination — the
+polynomial-coefficient form of the fingerprint; a random evaluation of it is a separate soundness tool.
 
 `zero`, `appendTerm`, `scale`, and `add` are the accumulation operations the verifier builds the MSM
 with (halo2 `MSM::{append_term, scale, add_msm}`). Everything stays generic over `[Field F]` and an
@@ -77,34 +77,6 @@ def eval {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
   (Finset.univ.sum fun i => m.gScalars i • srs.g i)
     + m.wScalar • srs.w + m.uScalar • srs.u
     + (m.other.map fun t => t.1 • t.2).sum
-
-/-- The zero MSM evaluates to the group identity. -/
-theorem eval_zero {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G) :
-    (zero srs.k F G).eval srs = 0 := by
-  simp [eval, zero]
-
-/-- `eval` is additive (halo2 `add_msm`): the batch accumulator's sum of MSMs evaluates to the sum of
-their evaluations. -/
-theorem eval_add {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
-    (srs : SRS G) (m₁ m₂ : Msm srs.k F G) :
-    (m₁.add m₂).eval srs = m₁.eval srs + m₂.eval srs := by
-  simp only [eval, add, add_smul, Finset.sum_add_distrib, List.map_append, List.sum_append]
-  abel
-
-private theorem smul_list_sum {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
-    (c : F) (l : List (F × G)) :
-    (l.map fun t => c • (t.1 • t.2)).sum = c • (l.map fun t => t.1 • t.2).sum := by
-  induction l with
-  | nil => simp
-  | cons a t ih => simp [List.map_cons, List.sum_cons, ih, smul_add]
-
-/-- Scaling an MSM scales its evaluation (halo2 `scale`): `eval (scale c m) = c • eval m`. With
-`eval_add`, this is the linearity the batch random-linear-combination argument rests on. -/
-theorem eval_scale {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
-    (srs : SRS G) (c : F) (m : Msm srs.k F G) :
-    (m.scale c).eval srs = c • m.eval srs := by
-  simp only [eval, scale, List.map_map, Function.comp_def, mul_smul, smul_add, Finset.smul_sum,
-    smul_list_sum]
 
 /-- Appending a `(c, P)` term adds `c • P` to the evaluation. -/
 theorem eval_appendTerm {F G : Type*} [Field F] [AddCommGroup G] [Module F G]

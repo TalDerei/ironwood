@@ -3,8 +3,8 @@ import Zcash.Snark.IpaUWS
 /-!
 # The multiopen decode over the deployed IPA
 
-`Zcash.Snark.multiopen_decode_of_trees` proves the multiopen decode for the *clean* IPA. Here we wire it to
-the *deployed* IPA (with `U`/`W`/`S`): from deployed transcript trees opening the batched commitment at `n`
+`Zcash.Snark.batch_open_soundV` proves the multiopen decode for the clean IPA. Here we wire it to the
+deployed IPA (with `U`/`W`/`S`): from deployed transcript trees opening the batched commitment at `n`
 distinct batching challenges, the per-column openings are recovered — composing `deployed_ipa_soundV` (the
 `U`/`W`/`S`-peeled IPA opening at each batching challenge) with `batch_open_soundV` (the Vandermonde decode).
 
@@ -18,8 +18,8 @@ namespace Zcash.Snark
 
 variable {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
 
-/-- **The multiopen decode, derived over the deployed IPA.** Given, for each of `n` distinct batching
-challenges `zBatch k`, a *deployed* IPA transcript tree opening the batched commitment `Σⱼ (zBatch k)ʲ·C j`
+/-- The multiopen decode, derived over the deployed IPA. Given, for each of `n` distinct batching
+challenges `zBatch k`, a deployed IPA transcript tree opening the batched commitment `Σⱼ (zBatch k)ʲ·C j`
 to the batched value `Σⱼ (zBatch k)ʲ·e j`, every individual column `i` opens to its commitment `C i` and its
 claimed evaluation `e i`. Composes `deployed_ipa_soundV` (the per-batching-challenge opening, `U`/`W`/`S`
 peeled) with `batch_open_soundV` (the per-column Vandermonde decode), all binding-free beyond the augmented

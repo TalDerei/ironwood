@@ -4,25 +4,29 @@ import Zcash.Snark.Challenges
 import Zcash.Snark.Assemble
 
 /-!
-# Fiat-Shamir (hand-waved)
+# Fiat-Shamir: the challenge schedule (hash hand-waved)
 
 The deployed verifier is non-interactive: each challenge is a hash of the transcript absorbed so far,
-rather than a fresh verifier coin. In the deployed code that hash is **Blake2b** (`transcript.rs`,
-personalization `"Halo2-Transcript"`) — not BLAKE3 (BLAKE3 is Ironwood's txid hash, not the SNARK
-transcript). Per project scope, Fiat-Shamir is **hand-waved**: we model the hash as an abstract
-`squeeze` function (`FiatShamir`) and do not formalize Blake2b or the random-oracle reduction.
+rather than a fresh verifier coin. The hash is Blake2b (`transcript.rs`, personalization
+`"Halo2-Transcript"`) — not BLAKE3, which is Ironwood's txid hash, not the SNARK transcript. Per
+project scope the hash is hand-waved: we model it as an abstract `squeeze` function (`FiatShamir`) and
+formalize neither Blake2b nor the random-oracle reduction.
 
-What this module *does* pin down is the **schedule** — which proof elements are absorbed before each
-challenge is squeezed — transcribed from `plonk/verifier.rs`, `multiopen/verifier.rs`, and
-`commitment/verifier.rs`. This makes precise the sense in which the deployed verifier is the
-Fiat-Shamir image of the interactive one (`Zcash.Snark.Challenges` as genuine coins): the two differ
-only in the *source* of the challenges, and `deriveChallenges` is that source.
+## What is pinned down
 
-`nonInteractiveFingerprint` is then the deployed verifier's MSM: `assembleFinalMsm` at the FS-derived
-challenges. **The Fiat-Shamir assumption** — that these hashed challenges carry the interactive
-verifier's soundness to the non-interactive setting (the random-oracle step) — is the explicit
-hand-wave; in the fingerprint match the challenges are taken from the captured real transcript, so the
-match never re-derives them and does not depend on this assumption.
+The schedule — which proof elements are absorbed before each challenge is squeezed — transcribed from
+`plonk/verifier.rs`, `multiopen/verifier.rs`, and `commitment/verifier.rs`. This makes precise the
+sense in which the deployed verifier is the Fiat-Shamir image of the interactive one
+(`Zcash.Snark.Challenges` as genuine coins): the two differ only in the source of the challenges, and
+`deriveChallenges` is that source. `nonInteractiveFingerprint` is then the deployed verifier's MSM,
+`assembleFinalMsm` at the FS-derived challenges.
+
+## Assumptions
+
+* The Fiat-Shamir assumption (the random-oracle step) — that these hashed challenges carry the
+  interactive verifier's soundness to the non-interactive setting. This is the explicit hand-wave. In
+  the fingerprint match the challenges are taken from the captured real transcript, so the match never
+  re-derives them and does not depend on this assumption.
 -/
 
 namespace Zcash.Snark

@@ -48,7 +48,7 @@ def ColumnRef.resolve {F : Type*} (cr : ColumnRef) (instanceEvals adviceEvals fi
   | .instance i => instanceEvals i
 
 -- TODO(VK-correctness): a `VerifyingKey` value is populated from the halo2 `dump_lean_fixture` capture
--- (`Fixture.lean`) and trusted *verbatim* — Lean never re-derives the verifying key from the Orchard
+-- (`Fixture.lean`) and trusted verbatim — Lean never re-derives the verifying key from the Orchard
 -- circuit. So "the dumped `gates`/`omega`/`n`/query layouts are the real circuit's VK" is an assumption,
 -- not a theorem (the input-faithfulness seam). Discharging it means re-running keygen from the circuit
 -- definition and comparing. This is distinct from, and cheaper than, the output-side adequacy gap
@@ -173,32 +173,6 @@ def compressSet {k : ℕ} {F G : Type*} [Field F] (x1 : F)
     (Msm.zero k F G, List.replicate numPoints (0 : F), (1 : F))
   (res.1, res.2.1)
 
-/-- Evaluating the `x₁`-compression fold: the running MSM evaluates to `Σⱼ x₁ʲ • cⱼ` (as the `(G × F)`
-running `(value, power)` fold). The eval-vector component is irrelevant to the MSM, carried abstractly. -/
-theorem eval_foldl_compress {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
-    (x1 : F) (l : List (CommitmentRef srs.k F G × List F)) (m0 : Msm srs.k F G) (ev0 : List F)
-    (pow0 : F) :
-    (l.foldl (fun (st : Msm srs.k F G × List F × F) qc =>
-        (accumulateCommitment st.2.2 qc.1 st.1, (st.2.1.zip qc.2).map (fun e => e.1 + e.2 * st.2.2),
-         st.2.2 * x1)) (m0, ev0, pow0)).1.eval srs
-      = (l.foldl (fun (acc : G × F) qc => (acc.1 + acc.2 • qc.1.eval srs, acc.2 * x1))
-          (m0.eval srs, pow0)).1 := by
-  induction l generalizing m0 ev0 pow0 with
-  | nil => simp
-  | cons a t ih =>
-    rw [List.foldl_cons, List.foldl_cons, ih]
-    simp only [eval_accumulateCommitment]
-
-/-- The `x₁`-compressed per-set commitment evaluates to `Σⱼ x₁ʲ • (its commitments' values)`. -/
-theorem eval_compressSet_fst {F G : Type*} [Field F] [AddCommGroup G] [Module F G] (srs : SRS G)
-    (x1 : F) (setQueries : List (CommitmentRef srs.k F G × List F)) (numPoints : ℕ) :
-    (compressSet x1 setQueries numPoints).1.eval srs
-      = (setQueries.foldl (fun (acc : G × F) qc => (acc.1 + acc.2 • qc.1.eval srs, acc.2 * x1))
-          ((0 : G), (1 : F))).1 := by
-  simp only [compressSet]
-  rw [eval_foldl_compress]
-  simp only [Msm.eval_zero]
-
 /-- The multiopen opening MSM and combined value (halo2 `multiopen/verifier.rs`): compress each point
 set by `x₁`, compute the combined evaluation by Lagrange interpolation at `x₃` (`multiopenEval`), then
 collapse by `x₄` against `q'` (`multiopenCombine`). `u` are the prover's claimed per-set quotient
@@ -222,11 +196,11 @@ def assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] (ps : ProofString s
   ipaFold ch.x3 opened.2 ps.ipaC ps.ipaF ch.xi ch.z (List.ofFn ch.ipaRound) ps.ipaS
     (List.ofFn ps.ipaRounds) opened.1
 
-/-- **The assembled fingerprint MSM evaluates to the verifier's IPA verification equation.** Composing
+/-- The assembled fingerprint MSM evaluates to the verifier's IPA verification equation. Composing
 `eval_ipaFold` over `assembleFinalMsm = ipaFold … (assembleOpening …).1`: the deployed MSM's evaluation is
 the multiopen commitment `(assembleOpening …).1` opened by the IPA — `[-v]` at `g₀`, `[ξ] S`, the per-round
 `[uⱼ⁻¹] Lⱼ + [uⱼ] Rⱼ`, `[-c·b·z] U`, `[-f] W`, and `[-c]` times the folded generators (`computeS`). So the
-deployed accept (`… = 0`) *is* this verification equation. The SRS is built from `g, w, u`, so its `k` is
+deployed accept (`… = 0`) is this verification equation. The SRS is built from `g, w, u`, so its `k` is
 `shape.k` definitionally — no transport needed. This puts `eval_ipaFold` on the soundness path. -/
 theorem eval_assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] [AddCommGroup G] [Module F G]
     (g : Fin (2 ^ shape.k) → G) (w u : G) (ps : ProofString shape F G) (ch : Challenges shape.k F)
@@ -254,7 +228,7 @@ each with its evaluation vector over the set's points, plus the set's points.
 
 The conflicting-eval guard (halo2's `None`) is omitted: the audit established it is unreachable for a
 well-formed verifying key (a defensive invariant on the verifier's own bookkeeping, not prover data).
-Commitments are grouped by their **slot identity** (`VerifierQuery.commId`), matching halo2's pointer
+Commitments are grouped by their slot identity (`VerifierQuery.commId`), matching halo2's pointer
 identity (`construct_intermediate_sets` keys by `std::ptr::eq`) — so two distinct slots with equal curve
 values stay distinct, which a value-equality key would wrongly merge. The curve
 value (`CommitmentRef`) is still what each group contributes to the MSM. -/
