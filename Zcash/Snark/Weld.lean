@@ -400,7 +400,7 @@ provable-but-unmodeled facts folded into the remaining hypotheses:
    `DeployedAccepts`, positing the trees wholesale rather than acting on the explicit verifier equation that
    `deployed_verification_eq` proves. -/
 open Polynomial in
-theorem orchard_verifier_sound_deployed_closed [DecidableEq G] [Inhabited G] {shape : Shape}
+theorem orchard_verifier_sound_deployed_closed {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp) {P : G} {v : Fp}
     {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
@@ -464,7 +464,7 @@ actual circuit witness. The collapse witness `a` does not appear — the IPA ope
 decode (`decoded_columns_of_accept` calls `deployed_ipa_soundV` per batching challenge), so the conclusion is
 that the recovered columns open their commitments and satisfy the gates, with nothing free to link. -/
 open Polynomial in
-theorem orchard_verifier_sound_deployed_cols [DecidableEq G] [Inhabited G] {shape : Shape}
+theorem orchard_verifier_sound_deployed_cols {shape : Shape}
     (srs : SRS G) (hk : shape.k = srs.k) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp)
     {nCols : ℕ} (C : Fin nCols → G) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
@@ -514,7 +514,7 @@ lateral move on the floor, not done.) Inputs are the named floor: the AGM repres
 + SZ (the opening), the batching rewinding `hMulti` (the decode), the VK numerator + SZ (the constraint), and
 VK-correctness (`hencodes`). -/
 open Polynomial in
-theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {shape : Shape}
+theorem orchard_verifier_sound_deployed_complete {shape : Shape}
     (g : Fin (2 ^ shape.k) → G) (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)
     (ch : Challenges shape.k Fp)
     -- opening (AGM) data:
