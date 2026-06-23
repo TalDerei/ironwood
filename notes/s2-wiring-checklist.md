@@ -68,6 +68,18 @@ Legend: ✅ closed (to the named floor) · 🔒 named standard floor (won't be e
 - **VK-correctness** (`hencodes`, §3 — incl. O3's column-layout identification), **Vesta curve order**
   (`Fact VestaOrder`), finite-field arithmetic.
 
+## Integrated capstone (the end-to-end composition)
+`orchard_verifier_sound_deployed_complete` (+ Vesta `orchard_verifier_sound_vesta_complete`) composes all
+three into **one exported theorem** over the real assembly: O1 (AGM) derives `IpaRelation` from
+`DeployedAccepts` with **no posited tree**, O3 recovers the columns, and O2 derives the gate identity from the
+decoded `h`-column + the VK numerator + SZ — so the capstone has **no `hIpa`/tree bridge and no assumed
+`hquot`**. Its inputs are exactly the named floor.
+
+Open nudges (clearly marked, not hidden gaps): (i) `hSxi`/`huRounds` are named SZ exclusions (the `ξ`/`z`
+challenge arguments) — proving them from the SZ bound would shrink O1's floor to pure AGM+binding, but they
+bottom at the same good-challenge floor as `hgood`. (ii) the perm/lookup polynomials sit in O2's VK numerator
+(`hNum`), the §3 boundary.
+
 ## Summary
 O1/O2/O3 are now closed to the named floor via the AGM route (no posited tree):
 - **O1** — `orchard_verifier_sound_deployed_agm`: `DeployedAccepts → IpaRelation`, the structured relations
