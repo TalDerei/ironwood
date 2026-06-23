@@ -169,4 +169,63 @@ theorem orchard_verifier_sound_vesta_closed [Fact VestaOrder] [DecidableEq Vesta
   orchard_verifier_sound_deployed_closed srs hk vk ps ch C e zBatch fixedCols decodeAdvice decodeInstance
     y gates hpoly deg x hbind hz haccepts hIpa hMulti hquot hgood hencodes
 
+open Polynomial in
+/-- **The deployed Orchard verifier is sound over Vesta — the integrated AGM capstone (O1+O2+O3, no tree, no
+assumed `hquot`).** `orchard_verifier_sound_deployed_complete` specialised to `SWPoint Vesta.curve`: the IPA
+opening is derived from `assemble.eval = 0` by the augmented binding (O1, AGM — no rewinding tree), the
+per-column decode is recovered (O3), and the gate identity is derived from the decoded `h`-column + the VK
+numerator + SZ (O2 — `hquot` is *not* a hypothesis). Named floor: the AGM representations + augmented binding
++ SZ (O1), the batching rewinding (O3), the VK numerator + SZ (O2), the Vesta curve order, and VK-correctness
+(`hencodes`). -/
+theorem orchard_verifier_sound_vesta_complete [Fact VestaOrder] [DecidableEq VestaG] [Inhabited VestaG]
+    {shape : Shape} (g : Fin (2 ^ shape.k) → VestaG) (w uu : VestaG) (vk : VerifyingKey shape Fp VestaG)
+    (ps : ProofString shape Fp VestaG) (ch : Challenges shape.k Fp)
+    (aP aS aRounds : Fin (2 ^ shape.k) → Fp) (pw sw uRounds wRounds ipRounds cb : Fp)
+    (hbind : ∀ {m : ℕ} (g' : Fin m → VestaG), AugmentedBinding (F := Fp) g' uu w)
+    (hP : (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp VestaG)).1.eval
+        ⟨shape.k, g, w, uu⟩ = commitGen g aP + pw • w)
+    (hS : ps.ipaS = commitGen g aS + sw • w)
+    (hRounds : (((List.ofFn ps.ipaRounds).zip (List.ofFn ch.ipaRound)).map
+        (fun p => p.2⁻¹ • p.1.1 + p.2 • p.1.2)).sum = commitGen g aRounds + uRounds • uu + wRounds • w)
+    (hSxi : innerProduct (ch.xi • aS) (evalVector shape.k ch.x3) = 0)
+    (hvVec : innerProduct (fun i => ([-(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime
+        (List.ofFn ps.multiopenU) (constructIntermediateSets (assembleQueries vk ps ch))
+        (Msm.zero shape.k Fp VestaG)).2] : List Fp).getD i.val 0) (evalVector shape.k ch.x3)
+      = -(assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+        (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp VestaG)).2)
+    (hsvTerm : innerProduct (fun i => (computeS (List.ofFn ch.ipaRound) (-ps.ipaC)).getD (i : ℕ) 0)
+      (evalVector shape.k ch.x3) = -cb)
+    (hRoundsIP : innerProduct aRounds (evalVector shape.k ch.x3) = ipRounds)
+    (huConst : (-ps.ipaC) * computeB ch.x3 (List.ofFn ch.ipaRound) * ch.z = -(cb * ch.z))
+    (huRounds : uRounds = ch.z * ipRounds) (hz : ch.z ≠ 0)
+    {nCols : ℕ} (C : Fin nCols → VestaG) (e : Fin nCols → Fp) (zBatch : Fin nCols → Fp)
+    (hMulti : DeployedMultiopenRewind (⟨shape.k, g, w, uu⟩ : SRS VestaG) (evalVector shape.k ch.x3) C e
+      zBatch ch.z (DeployedAccepts (⟨shape.k, g, w, uu⟩ : SRS VestaG) rfl vk ps ch))
+    (fixedCols : ℕ → Polynomial Fp)
+    (decodeAdvice decodeInstance : (Fin nCols → (Fin (2 ^ shape.k) → Fp)) → (ℕ → Polynomial Fp))
+    (y : Fp) {ng : ℕ} (gates : Fin ng → Expr Fp) (hpoly : Polynomial Fp) (deg : ℕ) (xc eHEval : Fp)
+    (hHcol : hpoly.eval xc = eHEval)
+    (hNum : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates).eval xc = eHEval * (xc ^ deg - 1))
+    (hgood : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates ≠ hpoly * (X ^ deg - 1) →
+      (combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates
+        - hpoly * (X ^ deg - 1)).eval xc ≠ 0)
+    (haccepts : DeployedAccepts (⟨shape.k, g, w, uu⟩ : SRS VestaG) rfl vk ps ch)
+    {S : Prop}
+    (hencodes : ∀ col : Fin nCols → (Fin (2 ^ shape.k) → Fp),
+      (∀ i, commitGen g (col i) = C i ∧ commitGen (evalVector shape.k ch.x3) (col i) = e i) →
+      IpaRelation (⟨shape.k, g, w, uu⟩ : SRS VestaG) (commitGen g aP) (evalVector shape.k ch.x3)
+        (assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
+          (constructIntermediateSets (assembleQueries vk ps ch)) (Msm.zero shape.k Fp VestaG)).2 aP →
+      combineGates fixedCols (decodeAdvice col) (decodeInstance col) y gates = hpoly * (X ^ deg - 1) →
+      S) :
+    S :=
+  orchard_verifier_sound_deployed_complete g w uu vk ps ch aP aS aRounds pw sw uRounds wRounds ipRounds cb
+    hbind hP hS hRounds hSxi hvVec hsvTerm hRoundsIP huConst huRounds hz C e zBatch hMulti fixedCols
+    decodeAdvice decodeInstance y gates hpoly deg xc eHEval hHcol hNum hgood haccepts hencodes
+
 end Zcash.Snark
