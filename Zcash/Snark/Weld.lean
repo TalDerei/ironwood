@@ -437,17 +437,23 @@ theorem orchard_verifier_sound_deployed_cols [DecidableEq G] [Inhabited G] {shap
     (hgood col hcol)
   exact hencodes col hcol hsat
 
-/-! ## The integrated capstone: AGM O1 + derived O2 + columns O3, end-to-end (no tree, no assumed `hquot`)
+/-! ## The integrated capstone: AGM O1 + derived O2 + columns O3, end-to-end (no assumed `hquot`)
 
 `orchard_verifier_sound_deployed_complete` composes the three closed routes into one exported theorem over the
-real assembly, with **no posited tree and no assumed gate point-check**:
-* **O1 (AGM)** — `orchard_verifier_sound_deployed_agm` derives `IpaRelation` directly from `DeployedAccepts`.
-* **O3 (decode)** — `decoded_columns_of_accept` recovers the per-column openings.
+real assembly:
+* **O1 (AGM)** — `orchard_verifier_sound_deployed_agm` derives `IpaRelation` directly from `DeployedAccepts`,
+  **tree-free** (the augmented binding reads it off the flat equation; no `hIpa`/opening tree).
+* **O3 (decode)** — `decoded_columns_of_accept` recovers the per-column openings; this **does posit trees** —
+  the batching rewinding `hMulti`, which is the named floor (the decode is *not* tree-free).
 * **O2 (derived)** — `deployed_constraint_of_decode` derives the gate identity from the decoded `h`-column +
   the VK numerator + SZ (so `hquot` is *not* a hypothesis — it is derived inside).
 
-Inputs are exactly the named floor: the AGM representations + augmented binding + SZ (O1), the batching
-rewinding (O3), the VK numerator + SZ (O2), and VK-correctness (`hencodes`). -/
+Scope note: "tree-free" applies to the **opening** (O1), not end-to-end — the decode (O3) uses the batching
+rewinding `hMulti`. (AGM-ifying the decode — recovering the per-column openings from the `Cᵢ` representations
++ an SZ-over-batching argument instead of `hMulti` — would make it literally tree-free end-to-end; that is a
+lateral move on the floor, not done.) Inputs are exactly the named floor: the AGM representations + augmented
+binding + SZ (O1), the batching rewinding `hMulti` (O3), the VK numerator + SZ (O2), and VK-correctness
+(`hencodes`). -/
 open Polynomial in
 theorem orchard_verifier_sound_deployed_complete [DecidableEq G] [Inhabited G] {shape : Shape}
     (g : Fin (2 ^ shape.k) → G) (w uu : G) (vk : VerifyingKey shape Fp G) (ps : ProofString shape Fp G)

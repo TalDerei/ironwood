@@ -71,17 +71,24 @@ Legend: ✅ closed (to the named floor) · 🔒 named standard floor (won't be e
 ## Integrated capstone (the end-to-end composition)
 `orchard_verifier_sound_deployed_complete` (+ Vesta `orchard_verifier_sound_vesta_complete`) composes all
 three into **one exported theorem** over the real assembly: O1 (AGM) derives `IpaRelation` from
-`DeployedAccepts` with **no posited tree**, O3 recovers the columns, and O2 derives the gate identity from the
-decoded `h`-column + the VK numerator + SZ — so the capstone has **no `hIpa`/tree bridge and no assumed
-`hquot`**. Its inputs are exactly the named floor.
+`DeployedAccepts` **tree-free for the opening** (no `hIpa`/opening tree), O3 recovers the columns, and O2
+derives the gate identity from the decoded `h`-column + the VK numerator + SZ — so the capstone has **no
+opening-tree bridge and no assumed `hquot`**. Its inputs are exactly the named floor.
+
+**Scope note (the "tree-free" claim).** Tree-free applies to the *opening* (O1), **not end-to-end**: the
+decode (O3) still posits trees via the batching rewinding `hMulti`, which is the named floor. Making it
+literally tree-free end-to-end would mean AGM-ifying the decode too (per-column openings from the `Cᵢ`
+representations + an SZ-over-batching argument instead of `hMulti`) — a lateral move on the floor (rewinding →
+AGM+SZ), not done.
 
 Open nudges (clearly marked, not hidden gaps): (i) `hSxi`/`huRounds` are named SZ exclusions (the `ξ`/`z`
 challenge arguments) — proving them from the SZ bound would shrink O1's floor to pure AGM+binding, but they
 bottom at the same good-challenge floor as `hgood`. (ii) the perm/lookup polynomials sit in O2's VK numerator
-(`hNum`), the §3 boundary.
+(`hNum`), the §3 boundary. (iii) AGM-ify the decode (above) to make tree-free literal end-to-end.
 
 ## Summary
-O1/O2/O3 are now closed to the named floor via the AGM route (no posited tree):
+O1/O2/O3 are now closed to the named floor (the *opening* via the AGM route is tree-free; the decode posits
+the batching-rewinding tree as floor):
 - **O1** — `orchard_verifier_sound_deployed_agm`: `DeployedAccepts → IpaRelation`, the structured relations
   derived from `assemble.eval = 0` by the augmented binding (`deployed_flat_split`/`deployed_open_value`/
   `ipaRelation_of_flat`/`deployed_accept_flat`). No tree posited.
