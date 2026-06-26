@@ -50,7 +50,7 @@ and gives the protocol a clean migration path away from legacy Orchard state.
 ### Chain History Tree
 
 The chain history tree (the FlyClient MMR introduced in
-[ZIP 221](https://zips.z.cash/zip-0221)) gains Ironwood metadata. From NU7
+[ZIP 221](https://zips.z.cash/zip-0221)) gains Ironwood metadata. From NU6.3
 onward, history nodes use a new node-data version that, in addition to the
 existing Sapling and Orchard fields, commits to:
 
@@ -59,7 +59,7 @@ existing Sapling and Orchard fields, commits to:
   and
 - the number of transactions in the range that contain an Ironwood bundle.
 
-The effect is that, from NU7 onward, the chain history commitment binds the
+The effect is that, from NU6.3 onward, the chain history commitment binds the
 Ironwood tree state and Ironwood activity of every block range, just as it
 already binds Sapling and Orchard.
 
@@ -84,7 +84,7 @@ The rest of the bundle structure follows Orchard.
 
 ### Orchard Circuit Constraint
 
-After NU7, Orchard is constrained so that it can only remove value from Orchard
+After NU6.3, Orchard is constrained so that it can only remove value from Orchard
 or split existing Orchard notes into change notes. It must not allow new value
 to enter Orchard.
 
@@ -135,7 +135,7 @@ bundle order is:
 The Ironwood bundle uses the same Orchard-style bundle serialization as the
 Orchard bundle, but is interpreted under the Ironwood protocol context.
 
-Version 6 is the default transaction version for NU7. Version 5 remains the
+Version 6 is the default transaction version for NU6.3. Version 5 remains the
 transaction version for NU5 through NU6.2.
 
 ### Orchard Bundle Changes in Version 6
@@ -145,7 +145,7 @@ consensus-visible ways. Together these wind Orchard down into a spend-only,
 same-address pool while reusing its action machinery.
 
 - **Flag encoding.** Orchard bundle flags gain a new `enableCrossAddress` flag.
-  After NU7 an Orchard bundle must *not* set it: consensus rejects a version 6
+  After NU6.3 an Orchard bundle must *not* set it: consensus rejects a version 6
   Orchard bundle that does, restricting Orchard actions to change or withdrawal.
   Ironwood, by contrast, may set it. See
   [Action Circuit](design/action-circuit.md).
@@ -184,9 +184,9 @@ block's authorizing-data commitment.
 
 ## Consensus Value Rules
 
-### Post-NU7 Orchard Value Rule
+### Post-NU6.3 Orchard Value Rule
 
-After NU7 activation, no funds can flow into Orchard. Transactions must not have
+After NU6.3 activation, no funds can flow into Orchard. Transactions must not have
 a negative Orchard value balance.
 
 The rule still permits:
@@ -198,14 +198,14 @@ The rule still permits:
 This lets wallets spend existing Orchard funds while preventing newly created
 shielded value from being placed back into Orchard.
 
-### Coinbase After NU7
+### Coinbase After NU6.3
 
-Because new value may not enter Orchard after NU7, coinbase rules change so that
+Because new value may not enter Orchard after NU6.3, coinbase rules change so that
 block rewards are never paid into the Orchard pool:
 
 - **No Orchard coinbase outputs.** Coinbase reward outputs are routed to Sapling
   or transparent receivers; the Orchard receiver is no longer a reward
-  destination after NU7. A miner address whose unified address contains *only* an
+  destination after NU6.3. A miner address whose unified address contains *only* an
   Orchard receiver is therefore rejected for coinbase use.
 - **Coinbase value balance includes Ironwood.** The coinbase balance check
   accounts for the Ironwood value balance alongside Sapling and Orchard, and
@@ -218,11 +218,11 @@ block rewards are never paid into the Orchard pool:
 
 ### Wallet Routing
 
-Wallet-created Orchard receiver outputs are routed to Ironwood after NU7.
+Wallet-created Orchard receiver outputs are routed to Ironwood after NU6.3.
 
-Before NU7, an Orchard receiver produces an Orchard output. After NU7, the same
+Before NU6.3, an Orchard receiver produces an Orchard output. After NU6.3, the same
 receiver produces an Ironwood output using the QR note plaintext format.
-Change follows the same rule: Orchard change after NU7 is emitted as Ironwood
+Change follows the same rule: Orchard change after NU6.3 is emitted as Ironwood
 change.
 
 When spending notes, wallets split Orchard-shaped notes by note plaintext
@@ -280,7 +280,7 @@ verifiers and provers need the note version to reconstruct note commitments.
 The current design still has placeholders that should be finalized before a
 production protocol specification:
 
-- the NU7 consensus branch ID,
+- the NU6.3 consensus branch ID,
 - final ZIP text for transaction version 6 and Ironwood hashing, and
 - final activation heights and deployment rules.
 

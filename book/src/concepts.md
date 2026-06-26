@@ -11,7 +11,7 @@ At a high level, Ironwood introduces:
 - a new note commitment tree and nullifier set,
 - transaction version 6, which is version 5 with an Ironwood bundle added,
 - Ironwood quantum-recoverable note plaintexts,
-- a rule that no funds can flow into Orchard after NU7, and
+- a rule that no funds can flow into Orchard after NU6.3, and
 - a circuit update that lets Orchard notes be withdrawn or split into change
   notes, without allowing new value to enter Orchard.
 
@@ -56,12 +56,12 @@ Ironwood bundles follow the same Orchard-style bundle structure, but they are
 separate bundles in the transaction. Ironwood uses different personalization
 strings for its transaction and authorization hashes.
 
-## Value Movement After NU7
+## Value Movement After NU6.3
 
-After NU7 activation, no funds can flow into Orchard. Transactions can still
+After NU6.3 activation, no funds can flow into Orchard. Transactions can still
 spend Orchard funds, and zero-balance Orchard actions are still allowed, but
 Orchard value balance must not be negative.
 
 Wallet-created payments and change that would previously have produced Orchard
-outputs are routed to Ironwood after NU7. This moves newly created shielded
+outputs are routed to Ironwood after NU6.3. This moves newly created shielded
 value into Ironwood while still allowing legacy Orchard notes to be spent.

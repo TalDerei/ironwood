@@ -85,7 +85,7 @@ to choose that future protocol today.
 
 ## Why This Matters For Ironwood
 
-Ironwood is the pool where new Orchard-style shielded value goes after NU7.
+Ironwood is the pool where new Orchard-style shielded value goes after NU6.3.
 Using Ironwood notes means new Ironwood funds are created in the recoverable
 format from the start.
 

@@ -32,17 +32,17 @@ value balance), rather than a *cross-address transfer*. Its purpose is to
 discourage economic activity within the pool.
 
 This is the circuit mechanism behind the
-[Orchard Circuit Constraint](../design.md#orchard-circuit-constraint): after NU7,
+[Orchard Circuit Constraint](../design.md#orchard-circuit-constraint): after NU6.3,
 legacy Orchard actions disable cross-address transfers and the pool is wound
 down, while pools that accept new payments (Ironwood) keep cross-address
 transfers enabled.
 
-The companion rule that no new value may enter Orchard after NU7 (that the
+The companion rule that no new value may enter Orchard after NU6.3 (that the
 Orchard value balance must not be negative) is not enforced by this circuit. The
 per-action circuit only ties `v_old - v_new` to the action's value commitment
 `cv_net`; the sign of the bundle's value balance is a transaction-level concern
 outside the orchard crate. See
-[Post-NU7 Orchard Value Rule](../design.md#post-nu7-orchard-value-rule).
+[Post-NU6.3 Orchard Value Rule](../design.md#post-nu63-orchard-value-rule).
 
 ### A new public input
 
