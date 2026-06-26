@@ -1,15 +1,49 @@
 name: Ironwood book
 
+# Always triggers, so the required `Ironwood book` check is always reported (a
+# workflow skipped by `on.paths` would leave a required check pending and block
+# merges). The heavy build/deploy is instead gated on a path filter computed
+# inside the run: it is skipped only when the change is provably irrelevant to
+# the book (touches nothing but Lean source and Lake build files, which cannot
+# affect the book).
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 permissions: {}
 
 jobs:
+  changes:
+    name: Detect book-relevant changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      book: ${{ steps.filter.outputs.book }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      # A change is book-relevant iff some changed file is not purely a Lean
+      # source or Lake build file. The single negated brace pattern matches any
+      # file outside that set (dorny/paths-filter uses picomatch, not GitHub's
+      # own `on.paths` engine).
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        id: filter
+        with:
+          filters: |
+            book:
+              - '!{**/*.lean,lakefile.toml,lakefile.lean,lean-toolchain,lake-manifest.json}'
+
   build:
+    name: Build the book
+    needs: changes
+    if: needs.changes.outputs.book == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -36,12 +70,12 @@ jobs:
           path: ./book/book
 
   deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Deploy the book to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.result == 'success'
     needs: build
     runs-on: ubuntu-latest
     permissions:
-      # Required to push the built book to the gh-pages branch.
-      contents: write
+      contents: write # push the built book to the gh-pages branch
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -58,3 +92,29 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./book/book
+
+  book-ci:
+    # The single stable check to mark as a required status check. It always
+    # runs, so it always reports; it fails only if the book build actually
+    # failed.
+    name: Ironwood book CI
+    needs: [changes, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gate on the build result
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "The changes-detection job did not succeed."
+            exit 1
+          fi
+          case "$BUILD_RESULT" in
+            success|skipped)
+              echo "Book build passed or was not required for this change." ;;
+            *)
+              echo "Book build result: $BUILD_RESULT."
+              exit 1 ;;
+          esac
