@@ -1,15 +1,16 @@
-# $\mathtt{ironwood} \gets \text{Setup}(1^\lambda)$
+# Ironwood $\small\gets \text{Setup}(1^\lambda)$
 
-Ironwood is a new shielded pool, built to restore confidence for all Zcash'rs
-in the supply integrity of Zcash. A formal verification is in progress, which
-is intended to cover at least soundness of the Action circuit used by the
-Orchard and Ironwood pools, before the upgrade that activates Ironwood.
-An important part of this effort will be to clearly and accurately document
-the scope of what is and is not formally verified.
+$\textsf{Ironwood}$ is a project to deploy a new shielded pool, built to restore
+confidence for all Zcash'rs in the supply integrity of Zcash.
+
+A formal verification is in progress, which is intended to cover at least soundness
+of the Action circuit used by the *Orchard* and *Ironwood pools*, before the NU6.3
+upgrade that activates the latter. An important part of this effort will be to clearly
+and accurately document the scope of what is and is not formally verified.
 
 ## Documentation
 
-- [The Ironwood Book](https://zcash.github.io/ironwood/)
+- [$\textsf{The Ironwood Book}$](https://zcash.github.io/ironwood/)
 
 ## License
 

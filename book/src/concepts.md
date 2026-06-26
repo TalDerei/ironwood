@@ -1,67 +1,77 @@
 # Concepts
 
-Ironwood is a proposed new shielded value pool for Zcash. It is designed as an
-Orchard successor pool: it keeps the Orchard action shape, keys, and proof
-system, while separating Ironwood state from Orchard state and using a new note
-plaintext format for quantum-recoverable notes.
+$\IronwoodProject$ is the project to deploy a new shielded value pool for Zcash: the
+*Ironwood pool*. The *Ironwood pool* reuses the Orchard protocol —the Orchard
+action shape, keys, and proof system— while keeping its own state, separate from
+the *Orchard pool*, and using a new note plaintext format for quantum-recoverable
+notes.
 
-At a high level, Ironwood introduces:
+At a high level, $\IronwoodProject$ introduces:
 
-- a new shielded value pool and value balance based on Orchard,
-- a new note commitment tree and nullifier set,
-- transaction version 6, which is version 5 with an Ironwood bundle added,
-- Ironwood quantum-recoverable note plaintexts,
-- a rule that no funds can flow into Orchard after NU6.3, and
-- a circuit update that lets Orchard notes be withdrawn or split into change
-  notes, without allowing new value to enter Orchard.
+- a new shielded value pool and value balance, the *Ironwood pool*, with its
+  own note commitment tree and nullifier set but reusing the Orchard protocol;
+- transaction version 6, which is version 5 with an *Ironwood-pool* bundle added;
+- quantum-recoverable note plaintexts for *Ironwood-pool* notes;
+- a rule that no funds can flow into the *Orchard pool* after NU6.3; and
+- a circuit update that lets *Orchard-pool* notes be withdrawn or split into
+  change notes, without allowing new value to enter that pool.
 
 ## Relationship To Orchard
 
-Ironwood reuses the Orchard action and zero-knowledge proof structure. This
-keeps the transition smaller than introducing an entirely new shielded protocol
-from first principles.
+We distinguish the Orchard protocol —the shared action shape, keys, proof
+system, and note machinery— from the *Orchard pool* and the *Ironwood pool*, the
+two value pools that use it. Each pool has its own note commitment tree,
+nullifier set, and value balance.
 
-The important distinction is that Ironwood is not "more Orchard state". It has
-its own value pool, tree, and nullifier set. An Ironwood note is represented with
-Orchard note machinery, but it is committed into the Ironwood note commitment
-tree and spent against the Ironwood nullifier set.
+The *Ironwood pool* reuses the Orchard protocol's action and zero-knowledge proof
+structure. This keeps the transition smaller than introducing an entirely new
+shielded protocol from first principles.
 
-This lets existing Orchard receiver and viewing-key infrastructure remain useful
-while creating a clean state boundary between legacy Orchard funds and Ironwood
-funds.
+The important distinction is that the *Ironwood pool* is not "more *Orchard-pool*
+state". It has its own value balance, note commitment tree, and nullifier set. An
+*Ironwood-pool* note is represented with Orchard-protocol note machinery, but it
+is committed into the *Ironwood pool*'s note commitment tree and spent against the
+*Ironwood pool*'s nullifier set.
+
+This lets the existing Orchard receiver and viewing-key infrastructure remain
+useful while creating a clean state boundary between legacy *Orchard-pool* funds
+and *Ironwood-pool* funds.
 
 ## Quantum-Recoverable Notes
 
-ZIP 2005 defines a new Orchard note plaintext format with lead byte `0x03`: the
-quantum-recoverable note plaintext format. Ironwood adopts this format for its
-notes.
+ZIP 2005 defines a new Orchard-protocol note plaintext format with lead byte
+$\mathtt{0x03}$: the quantum-recoverable note plaintext format. The *Ironwood pool*
+adopts this format for its notes.
 
-In wallet-facing code, Ironwood notes are Orchard-shaped notes using the
-Ironwood note plaintext format. Existing Orchard notes remain ordinary Orchard
-notes. Ironwood notes use Ironwood tree state when they are spent.
+In wallet-facing code, *Ironwood-pool* notes are Orchard-shaped notes using the
+quantum-recoverable note plaintext format. The note plaintext format of
+*Orchard-pool* notes remains unchanged. *Ironwood-pool* notes use that pool's
+treestate when they are spent.
 
 ## Transaction Version 6
 
-Ironwood is carried by transaction version 6. Transaction version 6 is the same
-as version 5, except that it adds an Ironwood bundle. A version 6 transaction
-can contain:
+A new transaction format, version 6, is introduced in order to add an
+*Ironwood-pool* bundle. There are no other transaction format changes from v5
+(there is a change to the signature hashing needed to support [anchor update](#anchor-update)).
+
+A version 6 transaction can contain:
 
 - transparent inputs and outputs,
-- a Sapling bundle,
-- an Orchard bundle, and
-- an Ironwood bundle.
+- bundles for each of the *Sapling*, *Orchard*, and *Ironwood* pools.
 
-Sapling and transparent components are unchanged from version 5. The Orchard and
-Ironwood bundles follow the same Orchard-style bundle structure, but they are
-separate bundles in the transaction. Ironwood uses different personalization
-strings for its transaction and authorization hashes.
+The *Sapling-pool* and transparent components are unchanged from version 5. The
+*Orchard-pool* and *Ironwood-pool* bundles follow the same Orchard-protocol
+bundle structure, but they are separate bundles in the transaction. The
+*Ironwood-pool* bundle uses different personalization strings for its transaction
+and authorization hashes.
 
 ## Value Movement After NU6.3
 
-After NU6.3 activation, no funds can flow into Orchard. Transactions can still
-spend Orchard funds, and zero-balance Orchard actions are still allowed, but
-Orchard value balance must not be negative.
+After NU6.3 activation, no funds can flow into the *Orchard pool*. Transactions
+can still spend *Orchard-pool* funds, and zero-balance *Orchard-pool* actions are
+still allowed, but the *Orchard pool*'s value balance must not be negative.
 
-Wallet-created payments and change that would previously have produced Orchard
-outputs are routed to Ironwood after NU6.3. This moves newly created shielded
-value into Ironwood while still allowing legacy Orchard notes to be spent.
+Wallet-created payments and change that would previously have produced
+*Orchard-pool* outputs are routed to the *Ironwood pool* after NU6.3. This moves
+newly created shielded value into the *Ironwood pool* while still allowing legacy
+*Orchard-pool* notes to be spent.
