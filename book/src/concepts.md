@@ -48,6 +48,17 @@ quantum-recoverable note plaintext format. The note plaintext format of
 *Orchard-pool* notes remains unchanged. *Ironwood-pool* notes use that pool's
 treestate when they are spent.
 
+## Value Movement After NU6.3
+
+After NU6.3 activation, no funds can flow into the *Orchard pool*. Transactions
+can still spend *Orchard-pool* funds, and zero-balance *Orchard-pool* actions are
+still allowed, but the *Orchard pool*'s value balance must not be negative.
+
+Wallet-created payments and change that would previously have produced
+*Orchard-pool* outputs are routed to the *Ironwood pool* after NU6.3. This moves
+newly created shielded value into the *Ironwood pool* while still allowing legacy
+*Orchard-pool* notes to be spent.
+
 ## Transaction Version 6
 
 A new transaction format, version 6, is introduced in order to add an
@@ -65,13 +76,9 @@ bundle structure, but they are separate bundles in the transaction. The
 *Ironwood-pool* bundle uses different personalization strings for its transaction
 and authorization hashes.
 
-## Value Movement After NU6.3
+### Anchor update
 
-After NU6.3 activation, no funds can flow into the *Orchard pool*. Transactions
-can still spend *Orchard-pool* funds, and zero-balance *Orchard-pool* actions are
-still allowed, but the *Orchard pool*'s value balance must not be negative.
-
-Wallet-created payments and change that would previously have produced
-*Orchard-pool* outputs are routed to the *Ironwood pool* after NU6.3. This moves
-newly created shielded value into the *Ironwood pool* while still allowing legacy
-*Orchard-pool* notes to be spent.
+NU6.3 introduces an additional change for v6 transactions, applying to all of
+the pools that version supports (*Sapling*, *Orchard*, and *Ironwood*), that allows a
+transaction to be signed and then have its anchor updated later. This can improve
+privacy by leaking less information about when the transaction was signed.
