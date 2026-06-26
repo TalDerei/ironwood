@@ -18,7 +18,7 @@ the spec does — we treat both v4 and v5 transactions: a v4 Spend carries a per
 384 bytes (v4) or 352 (v5).
 
 Each byte/count magnitude is a named constant tied to the spec's quoted value by a single `example`.
-This module discharges the `hbound` of `bundle_integer_balances` for Sapling, via `sapling_natAbs_lt`
+This module discharges the `hbound` of `bundle_integer_balances_reduction` for Sapling, via `sapling_natAbs_lt`
 and the byte-budget corollary `sapling_natAbs_lt_of_bytes`, both reducing to the shared
 `natAbs_lt_of_vSumBound` in `Balance`.
 -/
@@ -143,12 +143,15 @@ theorem saplingVSumBound_lt_jubjubScalarOrder : saplingVSumBound < (jubjubScalar
              show saplingMaxOutputs = 2109 from rfl]
   norm_num [jubjubScalarOrder]
 
-/-- **Sapling integer value balance (§4.13).** A verifying Sapling bundle — `≤ saplingMaxSpends`
+/-- **Sapling integer balance reduction (§4.13).** A verifying Sapling bundle — `≤ saplingMaxSpends`
 spends and `≤ saplingMaxOutputs` outputs, each value in `[0, 2^64−1]`, signed-64-bit `vBalance` —
-balances over ℤ: `∑ v_old − ∑ v_new − vBalance = 0`. The no-overflow bound is discharged here by
-`sapling_natAbs_lt`; binding (`hBind`, the idealized `Binding`) and RedDSA extractability
-(`hExtract`) remain assumptions. -/
-theorem sapling_bundle_balances {M : Type*} [AddCommGroup M] [Module (ZMod jubjubScalarOrder) M]
+*either* balances over ℤ (`∑ v_old − ∑ v_new − vBalance = 0`) *or* exhibits a nontrivial
+discrete-log relation between `V` and `R`. The no-overflow bound is discharged here by
+`sapling_natAbs_lt`; there is no binding assumption (RedDSA extractability `hExtract` is the only
+cryptographic input), and the relation branch is discharged against DLR hardness at the
+computational layer. -/
+theorem sapling_bundle_balances_reduction {M : Type*} [AddCommGroup M]
+    [Module (ZMod jubjubScalarOrder) M]
     (V R : M) (spends outputs : List (ℤ × ZMod jubjubScalarOrder)) (vBalance : ℤ)
     (bsk : ZMod jubjubScalarOrder)
     (hOld : ∀ v ∈ spends.map Prod.fst, 0 ≤ v ∧ v ≤ 2^64 - 1)
@@ -156,12 +159,12 @@ theorem sapling_bundle_balances {M : Type*} [AddCommGroup M] [Module (ZMod jubju
     (hnOld : spends.length ≤ saplingMaxSpends)
     (hnNew : outputs.length ≤ saplingMaxOutputs)
     (hvBalance : |vBalance| ≤ 2^63)
-    (hBind : Binding (F := ZMod jubjubScalarOrder) V R)
     (hExtract : bindingVK V R (castBundle spends) (castBundle outputs) (vBalance : ZMod jubjubScalarOrder)
       = bsk • R) :
-    (spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance = 0 := by
+    (spends.map Prod.fst).sum - (outputs.map Prod.fst).sum - vBalance = 0
+      ∨ HasNontrivialRelation (F := ZMod jubjubScalarOrder) V R := by
   have hbound := sapling_natAbs_lt (spends.map Prod.fst) (outputs.map Prod.fst) vBalance
     hOld hNew (by simpa using hnOld) (by simpa using hnNew) hvBalance saplingVSumBound_lt_jubjubScalarOrder
-  exact bundle_integer_balances V R spends outputs vBalance bsk hbound hBind hExtract
+  exact bundle_integer_balances_reduction V R spends outputs vBalance bsk hbound hExtract
 
 end Zcash.Security.BindingSignature

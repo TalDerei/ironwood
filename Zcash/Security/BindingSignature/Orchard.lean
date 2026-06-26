@@ -11,7 +11,7 @@ independent of the transaction size (the spec notes this is technically redundan
 `SignedValueDifferenceType = [−2^64+1, 2^64−1]`, i.e. `|v| ≤ 2^64 − 1`.
 
 This module instantiates the generic `natAbs_lt_of_abs_le` from `Balance` at those concrete bounds,
-discharging the `hbound` hypothesis of `bundle_integer_balances` for Orchard.
+discharging the `hbound` hypothesis of `bundle_integer_balances_reduction` for Orchard.
 -/
 
 namespace Zcash.Security.BindingSignature
@@ -32,7 +32,7 @@ example : orchardVSumBound = 1208916596242592319864833 := by norm_num [orchardVS
 /-- **Orchard no-overflow bound.** With `|v| ≤ 2^64 − 1` per action, `n ≤ 2^16 − 1` actions, and
 `|vBalance| ≤ 2^63`, the net sum `vSum = ∑ v − vBalance` has `vSum.natAbs < r` once
 `orchardVSumBound < r` — directly from the shared `natAbs_lt_of_vSumBound`. This is the `hbound` of
-`bundle_integer_balances` for Orchard. -/
+`bundle_integer_balances_reduction` for Orchard. -/
 theorem orchard_natAbs_lt {r : ℕ} (vs : List ℤ) (vBalance : ℤ)
     (hv : ∀ v ∈ vs, |v| ≤ 2^64 - 1)
     (hn : vs.length ≤ 2^16 - 1)
@@ -46,23 +46,26 @@ theorem orchard_natAbs_lt {r : ℕ} (vs : List ℤ) (vBalance : ℤ)
 theorem orchardVSumBound_lt_pallasScalarOrder : orchardVSumBound < (pallasScalarOrder : ℤ) := by
   norm_num [orchardVSumBound, vSumBound, pallasScalarOrder]
 
-/-- **Orchard integer value balance (§4.14).** A verifying Orchard bundle of `≤ 2^16 − 1` actions —
-each committing a net value `v ∈ [−2^64+1, 2^64−1]`, with signed-64-bit `vBalance` — balances over ℤ:
-`∑ v_net − vBalance = 0`. The no-overflow bound is discharged here by `orchard_natAbs_lt`; binding
-(`hBind`, the idealized `Binding`) and RedDSA extractability (`hExtract`) remain assumptions. -/
-theorem orchard_bundle_balances {M : Type*} [AddCommGroup M] [Module (ZMod pallasScalarOrder) M]
+/-- **Orchard integer balance reduction (§4.14).** A verifying Orchard bundle of `≤ 2^16 − 1`
+actions — each committing a net value `v ∈ [−2^64+1, 2^64−1]`, with signed-64-bit `vBalance` —
+*either* balances over ℤ (`∑ v_net − vBalance = 0`) *or* exhibits a nontrivial discrete-log relation
+between `V` and `R`. The no-overflow bound is discharged here by `orchard_natAbs_lt`; there is no
+binding assumption (RedDSA extractability `hExtract` is the only cryptographic input), and the
+relation branch is discharged against DLR hardness at the computational layer. -/
+theorem orchard_bundle_balances_reduction {M : Type*} [AddCommGroup M]
+    [Module (ZMod pallasScalarOrder) M]
     (V R : M) (actions : List (ℤ × ZMod pallasScalarOrder)) (vBalance : ℤ)
     (bsk : ZMod pallasScalarOrder)
     (hv : ∀ v ∈ actions.map Prod.fst, |v| ≤ 2^64 - 1)
     (hn : actions.length ≤ 2^16 - 1)
     (hvBalance : |vBalance| ≤ 2^63)
-    (hBind : Binding (F := ZMod pallasScalarOrder) V R)
     (hExtract : bindingVK V R (castBundle actions) (castBundle []) (vBalance : ZMod pallasScalarOrder)
       = bsk • R) :
-    (actions.map Prod.fst).sum - vBalance = 0 := by
+    (actions.map Prod.fst).sum - vBalance = 0
+      ∨ HasNontrivialRelation (F := ZMod pallasScalarOrder) V R := by
   have hbound := orchard_natAbs_lt (actions.map Prod.fst) vBalance hv (by simpa using hn) hvBalance
     orchardVSumBound_lt_pallasScalarOrder
   simpa using
-    bundle_integer_balances V R actions [] vBalance bsk (by simpa using hbound) hBind hExtract
+    bundle_integer_balances_reduction V R actions [] vBalance bsk (by simpa using hbound) hExtract
 
 end Zcash.Security.BindingSignature
