@@ -31,8 +31,8 @@ at each bundle-hash node:
 
 ```mermaid
 flowchart TD
-    OrchardBundle["Orchard bundle digest<br/>ZTxIdOrchardHash"]
-    IronwoodBundle["Ironwood bundle digest<br/>ZTxIdIronwd_Hash"]
+    OrchardBundle["Orchard-pool bundle digest<br/>ZTxIdOrchardH_v6"]
+    IronwoodBundle["Ironwood-pool bundle digest<br/>ZTxIdIronwd_H_v6"]
 
     subgraph Shape["Same Orchard-protocol bundle hash shape"]
         Compact["actions compact hash<br/>nf, cmx, epk, compact ciphertext"]
