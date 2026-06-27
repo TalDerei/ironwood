@@ -1,4 +1,45 @@
-# Conventions
+# Terminology
+\IronwoodProject:{\textsf{Ironwood}}
 
+# Operators
 \bconcat:{\mathop{\kern 0.1em||\kern 0.1em}}
+
+# Variables
 \Repr:{\star}
+
+# Note and note-plaintext fields
+\d:{\mathsf{d}}
+\gd:{\mathsf{g_d}}
+\pkd:{\mathsf{pk_d}}
+\value:{\mathsf{v}}
+\noteRho:{\textsf{ρ}}
+\notePsi:{\textsf{φ}}
+\rcm:{\mathsf{rcm}}
+\rseed:{\mathsf{rseed}}
+
+# Values and value commitments
+\vOld:{\mathsf{v^{old}}}
+\vNew:{\mathsf{v^{new}}}
+\vNet:{\mathsf{v^{net}}}
+\cv:{\mathsf{cv}}
+\cvOld:{\mathsf{cv^{old}}}
+\cvNew:{\mathsf{cv^{new}}}
+\cvNet:{\mathsf{cv^{net}}}
+
+# Note commitments
+\cm:{\mathsf{cm}}
+\cmX:{\mathsf{cm}_x}
+\cmOld:{\mathsf{cm^{old}}}
+\cmNew:{\mathsf{cm^{new}}}
+
+# Action descriptions and the Action statement
+\rk:{\mathsf{rk}}
+\root:{\mathsf{root}}
+\anchor:{\mathsf{anchor}}
+\disableCrossAddress:{\mathsf{disableCrossAddress}}
+\coordOld:{\mathsf{coord^{old}}}
+\coordNew:{\mathsf{coord^{new}}}
+
+# Nullifiers
+\nf:{\mathsf{nf}}
+\nfOld:{\mathsf{nf^{old}}}

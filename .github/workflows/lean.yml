@@ -32,14 +32,15 @@ jobs:
           persist-credentials: false
       # dorny/paths-filter compiles each rule to its own picomatch matcher and
       # ORs them, so a change is Lean-relevant iff some changed file is either
-      # not under book/ or is a .lean file (anywhere). Note this is NOT the
-      # sequential-negation semantics of GitHub's own `on.paths` engine.
+      # not under book/ (and not the root README.md, which is book content
+      # included into the book) or is a .lean file (anywhere). Note this is NOT
+      # the sequential-negation semantics of GitHub's own `on.paths` engine.
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
         id: filter
         with:
           filters: |
             lean:
-              - '!book/**'
+              - '!{book/**,README.md}'
               - '**/*.lean'
 
   build:

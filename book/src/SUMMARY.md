@@ -7,3 +7,6 @@
 - [User Documentation](user.md) <!-- todo -->
 - [Design](design.md)
   - [Transaction Format](design/transaction-format.md)
+  - [Action Circuit](design/action-circuit.md)
+  - [*Orchard-* to *Ironwood-pool* Migration](design/migration.md) <!-- todo -->
+- [Formal Verification](formal-verification.md) <!-- todo -->
