@@ -26,6 +26,7 @@ import Zcash.Snark.Soundness.Consistency
 import Zcash.Snark.Soundness.KnowledgeSoundness
 import Zcash.Snark.Soundness.IpaSoundness
 import Zcash.Snark.Soundness.MultiopenDecode
+import Zcash.Snark.Soundness.MultiopenDecodeFixture
 import Zcash.Snark.Soundness.DeployedFold
 import Zcash.Snark.Soundness.DeployedIpa
 import Zcash.Snark.Soundness.DeployedIpaPeel
