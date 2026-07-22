@@ -37,9 +37,11 @@ concurrency:
 permissions: {}
 
 env:
-  # Orchard release tag shipping zcash/orchard#531 ("Add Post-NU6.3 verifier fingerprint fixtures").
-  ORCHARD_REPO: zcash/orchard
-  ORCHARD_REF: 0.15.1
+  # Orchard PR zcash/orchard#538 ("Derive instance commitments from public inputs in the fingerprint
+  # fixture export"), which threads the public instances into the capture. Pinned to a commit SHA;
+  # Halo2 is supplied by that branch's `[patch.crates-io]`, which points at zcash/halo2#918.
+  ORCHARD_REPO: TalDerei/orchard
+  ORCHARD_REF: 65ee845f7933010149b52e447840bfa92548066e
 
 jobs:
   changes:
