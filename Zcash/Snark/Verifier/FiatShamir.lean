@@ -125,7 +125,8 @@ def deriveChallenges {shape : Shape} {F G : Type*} [Zero F] (fs : FiatShamir F G
 The random-oracle assumption is what transfers interactive soundness to this non-interactive MSM. -/
 def nonInteractiveFingerprint {shape : Shape} {F G : Type*} [Field F] [DecidableEq F] [DecidableEq G]
     [Inhabited G] (fs : FiatShamir F G) (init : List (TranscriptElt F G))
-    (vk : VerifyingKey shape F G) (ps : ProofString shape F G) : Msm shape.k F G :=
-  assemble vk ps (deriveChallenges fs init ps)
+    (vk : VerifyingKey shape F G) (instanceCommitment : Fin shape.numProofs → ℕ → G)
+    (ps : ProofString shape F G) : Msm shape.k F G :=
+  assemble vk instanceCommitment ps (deriveChallenges fs init ps)
 
 end Zcash.Snark

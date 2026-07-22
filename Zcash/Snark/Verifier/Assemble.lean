@@ -51,13 +51,18 @@ def ColumnRef.resolve {F : Type*} (cr : ColumnRef) (instanceEvals adviceEvals fi
 -- Orchard circuit. So "the dumped VK is the real circuit's" is an assumption, not a theorem: the
 -- input-faithfulness boundary. Discharging it means re-running keygen and comparing. Distinct
 -- from the output-side semantic-adequacy gap (see `Soundness/Main.lean`).
-/-- The verifying-key–level circuit structure the assembly needs (halo2 `VerifyingKey` / `ConstraintSystem`).
-`omega` is the domain generator and `n = 2 ^ k` the domain size; `blindingFactors`, `delta`, `chunkLen`
-are the permutation-argument constants. `gates` are the custom-gate polynomials; `instance/advice/fixed
-QueryLayout` are the `(column, rotation)` query lists; `fixedCommitment`, `permutationCommonCommitment`
-and `instanceCommitment` (statement-derived) resolve column indices to commitments;
-`permutationChunks` groups the permutation columns (with their common-eval indices) per set; and
-`lookupInput/TableExprs` are the per-lookup input/table expressions. -/
+/-- The verifying-key–level circuit structure the assembly needs, mirroring halo2's `VerifyingKey`
+field-for-field: **circuit-fixed data only**. `omega` is the domain generator and `n = 2 ^ k` the
+domain size; `blindingFactors`, `delta`, `chunkLen` are the permutation-argument constants. `gates`
+are the custom-gate polynomials; `instance/advice/fixedQueryLayout` are the `(column, rotation)`
+query lists; `fixedCommitment` and `permutationCommonCommitment` resolve column indices to
+commitments; `permutationChunks` groups the permutation columns (with their common-eval indices) per
+set; and `lookupInput/TableExprs` are the per-lookup input/table expressions.
+
+The instance commitment is deliberately **not** a field: like halo2's `verify_proof`, the verifier
+computes it per proof from the public instances (`commit_lagrange`) rather than reading it from the
+VK, and supplies it to the assembly as a separate argument (`instanceCommitment` of
+`assembleQueries`/`assemble`). This keeps the VK a faithful image of the pinned Rust key. -/
 structure VerifyingKey (shape : Shape) (F G : Type*) where
   omega : F
   n : ℕ
@@ -69,7 +74,6 @@ structure VerifyingKey (shape : Shape) (F G : Type*) where
   adviceQueryLayout : List (ℕ × ℤ)
   fixedQueryLayout : List (ℕ × ℤ)
   fixedCommitment : ℕ → G
-  instanceCommitment : Fin shape.numProofs → ℕ → G
   permutationCommonCommitment : Fin shape.numPermutationColumns → G
   permutationChunks : List (List (ColumnRef × ℕ))
   lookupInputExprs : Fin shape.numLookups → List (Expr F)
@@ -127,6 +131,7 @@ def allExpressions {shape : Shape} {F G : Type*} [Field F] (vk : VerifyingKey sh
 vanishing `h` commitment and `expected_h_eval`, then chain, per sub-proof, the instance / advice /
 permutation / lookup queries, followed by the shared fixed / permutation-common / vanishing queries. -/
 def assembleQueries {shape : Shape} {F G : Type*} [Field F] [Inhabited G] (vk : VerifyingKey shape F G)
+    (instanceCommitment : Fin shape.numProofs → ℕ → G)
     (ps : ProofString shape F G) (ch : Challenges shape.k F) : List (VerifierQuery shape.k F G) :=
   let x := ch.x
   let xn := x ^ vk.n
@@ -138,7 +143,7 @@ def assembleQueries {shape : Shape} {F G : Type*} [Field F] [Inhabited G] (vk : 
   let eHEval := expectedHEval exprs ch.y xn
   let hComm := vanishingHCommitment shape.k xn (List.ofFn ps.hPieces)
   let perProof := (List.ofFn (fun p =>
-    columnQueries vk.omega x (vk.instanceCommitment p) (CommitmentId.instanceCol p)
+    columnQueries vk.omega x (instanceCommitment p) (CommitmentId.instanceCol p)
         vk.instanceQueryLayout (List.ofFn (ps.instanceEvals p))
     ++ columnQueries vk.omega x (finFnG (ps.adviceCommitments p)) (CommitmentId.adviceCol p)
         vk.adviceQueryLayout (List.ofFn (ps.adviceEvals p))
@@ -189,7 +194,7 @@ def assembleOpening {k : ℕ} {F G : Type*} [Field F] (x1 x2 x3 x4 : F) (qPrime 
 
 /-- The final fingerprint MSM (halo2 `plonk/verifier.rs` → `multiopen/verifier.rs` →
 `commitment/verifier.rs`): the multiopen opening, then the IPA fold opening it at `x₃` to the combined
-value. `grouped` is the `construct_intermediate_sets` output for `assembleQueries vk ps ch`. -/
+value. `grouped` is the `construct_intermediate_sets` output for `assembleQueries vk instanceCommitment ps ch`. -/
 def assembleFinalMsm {shape : Shape} {F G : Type*} [Field F] (ps : ProofString shape F G)
     (ch : Challenges shape.k F) (grouped : MultiopenGrouped shape.k F G) : Msm shape.k F G :=
   let opened := assembleOpening ch.x1 ch.x2 ch.x3 ch.x4 ps.multiopenQPrime (List.ofFn ps.multiopenU)
@@ -371,13 +376,14 @@ Two of these rejections abstract deployed *panics*, not error returns: at `xⁿ 
 challenges (`card_vanishingPanic_le`, `card_multiopenPanic_le`) and are non-accepting either way, which is
 the property the soundness layer consumes; the model just renders "crash" as `none`. -/
 def assemble? {shape : Shape} {F G : Type*} [Field F] [DecidableEq F] [DecidableEq G] [Inhabited G]
-    (vk : VerifyingKey shape F G) (ps : ProofString shape F G) (ch : Challenges shape.k F) :
+    (vk : VerifyingKey shape F G) (instanceCommitment : Fin shape.numProofs → ℕ → G)
+    (ps : ProofString shape F G) (ch : Challenges shape.k F) :
     Option (Msm shape.k F G) :=
   if proofStringWellFormed ps then
     if ch.x ^ vk.n = (1 : F) then
       none
     else
-      match constructIntermediateSets? (assembleQueries vk ps ch) with
+      match constructIntermediateSets? (assembleQueries vk instanceCommitment ps ch) with
       | some grouped =>
           if multiopenPointsAvoidX3 ch.x3 grouped then
             assembleFinalMsm? ps ch grouped
@@ -397,8 +403,9 @@ rejects; kept for the algebraic fingerprint lemmas.
 wrapper accepts malformed input. Acceptance must go through `assemble?` (as `DeployedAccepts` does),
 where rejection is `none`. -/
 def assemble {shape : Shape} {F G : Type*} [Field F] [DecidableEq F] [DecidableEq G] [Inhabited G]
-    (vk : VerifyingKey shape F G) (ps : ProofString shape F G) (ch : Challenges shape.k F) :
+    (vk : VerifyingKey shape F G) (instanceCommitment : Fin shape.numProofs → ℕ → G)
+    (ps : ProofString shape F G) (ch : Challenges shape.k F) :
     Msm shape.k F G :=
-  (assemble? vk ps ch).getD (Msm.zero shape.k F G)
+  (assemble? vk instanceCommitment ps ch).getD (Msm.zero shape.k F G)
 
 end Zcash.Snark
